@@ -1,0 +1,252 @@
+{
+  "info": {
+    "_postman_id": "adb-control-api-tests",
+    "name": "ADB Control API Tests",
+    "description": "Suite de pruebas para la API de Control ADB",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "API Information",
+      "item": [
+        {
+          "name": "Get API Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Obtiene información general de la API"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Device Management",
+      "item": [
+        {
+          "name": "Connect Device",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/devices/connect?ip={{device_ip}}&port={{device_port}}",
+              "host": ["{{base_url}}"],
+              "path": ["devices", "connect"],
+              "query": [
+                {
+                  "key": "ip",
+                  "value": "{{device_ip}}"
+                },
+                {
+                  "key": "port",
+                  "value": "{{device_port}}"
+                }
+              ]
+            },
+            "description": "Conecta a un dispositivo Android"
+          },
+          "response": []
+        },
+        {
+          "name": "List Connected Devices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/devices",
+              "host": ["{{base_url}}"],
+              "path": ["devices"]
+            },
+            "description": "Lista todos los dispositivos conectados"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Device Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/status?device_ip={{device_ip}}",
+              "host": ["{{base_url}}"],
+              "path": ["status"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                }
+              ]
+            },
+            "description": "Obtiene el estado de un dispositivo específico"
+          },
+          "response": []
+        },
+        {
+          "name": "Disconnect Device",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/devices/disconnect?device_ip={{device_ip}}",
+              "host": ["{{base_url}}"],
+              "path": ["devices", "disconnect"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                }
+              ]
+            },
+            "description": "Desconecta un dispositivo Android"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Video Control",
+      "item": [
+        {
+          "name": "Play YouTube Video",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/play?device_ip={{device_ip}}&video_url={{youtube_url}}",
+              "host": ["{{base_url}}"],
+              "path": ["play"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                },
+                {
+                  "key": "video_url",
+                  "value": "{{youtube_url}}"
+                }
+              ]
+            },
+            "description": "Reproduce un video de YouTube en el dispositivo"
+          },
+          "response": []
+        },
+        {
+          "name": "Pause Video",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/stop?device_ip={{device_ip}}",
+              "host": ["{{base_url}}"],
+              "path": ["stop"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                }
+              ]
+            },
+            "description": "Pausa el video (simula presionar espacio)"
+          },
+          "response": []
+        },
+        {
+          "name": "Exit Video App",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/exit?device_ip={{device_ip}}",
+              "host": ["{{base_url}}"],
+              "path": ["exit"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                }
+              ]
+            },
+            "description": "Sale de la aplicación (simula presionar atrás)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Device Operations",
+      "item": [
+        {
+          "name": "Take Screenshot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/screenshot?device_ip={{device_ip}}",
+              "host": ["{{base_url}}"],
+              "path": ["screenshot"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                }
+              ]
+            },
+            "description": "Descarga una captura de pantalla del dispositivo"
+          },
+          "response": []
+        },
+        {
+          "name": "Send Custom Command",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/command?device_ip={{device_ip}}&command=getprop ro.product.model",
+              "host": ["{{base_url}}"],
+              "path": ["command"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                },
+                {
+                  "key": "command",
+                  "value": "getprop ro.product.model"
+                }
+              ]
+            },
+            "description": "Ejecuta un comando ADB shell personalizado"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "device_ip",
+      "value": "192.168.1.100",
+      "type": "string"
+    },
+    {
+      "key": "device_port",
+      "value": "5555",
+      "type": "string"
+    },
+    {
+      "key": "youtube_url",
+      "value": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "type": "string"
+    }
+  ]
+}

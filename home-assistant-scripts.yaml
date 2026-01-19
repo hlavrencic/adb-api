@@ -1,0 +1,145 @@
+# Scripts para Home Assistant
+# Agregar esto en scripts.yaml de Home Assistant
+
+play_video_via_api:
+  description: "Reproduce video mediante API Docker ADB"
+  fields:
+    device_ip:
+      description: "IP del dispositivo"
+      example: "192.168.0.161"
+      required: true
+      selector:
+        text:
+    video_url:
+      description: "URL del video de YouTube"
+      example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      required: true
+      selector:
+        text:
+    api_host:
+      description: "Host de la API (default: localhost)"
+      example: "localhost"
+      required: false
+      default: "localhost"
+      selector:
+        text:
+    api_port:
+      description: "Puerto de la API (default: 8000)"
+      example: "8000"
+      required: false
+      default: "8000"
+      selector:
+        text:
+  
+  sequence:
+    - service: rest_command.play_video_adb
+      data:
+        device_ip: "{{ device_ip }}"
+        video_url: "{{ video_url }}"
+        api_host: "{{ api_host }}"
+        api_port: "{{ api_port }}"
+
+stop_video_via_api:
+  description: "Pausa video mediante API Docker ADB"
+  fields:
+    device_ip:
+      description: "IP del dispositivo"
+      required: true
+      selector:
+        text:
+    api_host:
+      description: "Host de la API"
+      required: false
+      default: "localhost"
+      selector:
+        text:
+    api_port:
+      description: "Puerto de la API"
+      required: false
+      default: "8000"
+      selector:
+        text:
+  
+  sequence:
+    - service: rest_command.stop_video_adb
+      data:
+        device_ip: "{{ device_ip }}"
+        api_host: "{{ api_host }}"
+        api_port: "{{ api_port }}"
+
+exit_video_via_api:
+  description: "Sale de video mediante API Docker ADB"
+  fields:
+    device_ip:
+      description: "IP del dispositivo"
+      required: true
+      selector:
+        text:
+    api_host:
+      description: "Host de la API"
+      required: false
+      default: "localhost"
+      selector:
+        text:
+    api_port:
+      description: "Puerto de la API"
+      required: false
+      default: "8000"
+      selector:
+        text:
+  
+  sequence:
+    - service: rest_command.exit_video_adb
+      data:
+        device_ip: "{{ device_ip }}"
+        api_host: "{{ api_host }}"
+        api_port: "{{ api_port }}"
+
+get_screenshot_via_api:
+  description: "Obtiene screenshot mediante API Docker ADB"
+  fields:
+    device_ip:
+      description: "IP del dispositivo"
+      required: true
+      selector:
+        text:
+    api_host:
+      description: "Host de la API"
+      required: false
+      default: "localhost"
+      selector:
+        text:
+    api_port:
+      description: "Puerto de la API"
+      required: false
+      default: "8000"
+      selector:
+        text:
+  
+  sequence:
+    - service: rest_command.screenshot_adb
+      data:
+        device_ip: "{{ device_ip }}"
+        api_host: "{{ api_host }}"
+        api_port: "{{ api_port }}"
+    
+    - service: persistent_notification.create
+      data:
+        title: "Screenshot capturado"
+        message: "Screenshot descargado de {{ device_ip }}"
+
+# Agregar esto en configuration.yaml de Home Assistant
+
+rest_command:
+  play_video_adb: !secret play_video_adb_url
+  stop_video_adb: !secret stop_video_adb_url
+  exit_video_adb: !secret exit_video_adb_url
+  screenshot_adb: !secret screenshot_adb_url
+
+# O de forma directa en configuration.yaml (sin secrets.yaml):
+
+rest_command:
+  play_video_adb: 'http://{{ api_host }}:{{ api_port }}/play?device_ip={{ device_ip }}&video_url={{ video_url }}'
+  stop_video_adb: 'http://{{ api_host }}:{{ api_port }}/stop?device_ip={{ device_ip }}'
+  exit_video_adb: 'http://{{ api_host }}:{{ api_port }}/exit?device_ip={{ device_ip }}'
+  screenshot_adb: 'http://{{ api_host }}:{{ api_port }}/screenshot?device_ip={{ device_ip }}'
