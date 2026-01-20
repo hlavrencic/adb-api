@@ -83,8 +83,8 @@ class DeviceConnection:
             self._ensure_keys_loaded()
             
             logger.info(f"Intentando conectar a {self.ip}:{self.port}")
-            # Crear dispositivo con timeout de 60 segundos
-            self.device = AdbDeviceTcp(self.ip, self.port, default_timeout=60.0)
+            # Crear dispositivo
+            self.device = AdbDeviceTcp(self.ip, self.port)
             # Conectar con timeout de 60 segundos
             self.device.connect(rsa_keys=self.rsa_keys, timeout=60.0)
             self.connected = True
