@@ -19,7 +19,7 @@ COPY src/main.py .
 RUN mkdir -p /tmp/screenshots /app/.android
 
 # Exponer puerto
-EXPOSE 8000
+EXPOSE 9123
 
 # Ejecutar API
 CMD ["python", "main.py"]

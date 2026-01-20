@@ -12,7 +12,7 @@ services:
     x-casaos-icon: "https://raw.githubusercontent.com/hn8888/docker-adb-api/main/.icon.png"
     
     ports:
-      - "8000:8000"
+      - "${PORT:-9123}:9123"
     
     volumes:
       - adb-keys:/app/.android
@@ -21,16 +21,18 @@ services:
     network_mode: host
     restart: unless-stopped
     
-    environment:
-      - TZ=America/Argentina/Buenos_Aires
-      - LOG_LEVEL=INFO
-    
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      test: ["CMD", "curl", "-f", "http://localhost:9123/docs"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
+    
+    environment:
+      # Puerto donde se ejecuta la API (default: 9123)
+      - PORT=${PORT:-9123}
+      - TZ=America/Argentina/Buenos_Aires
+      - LOG_LEVEL=INFO
 
 volumes:
   adb-keys:
