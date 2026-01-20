@@ -2,6 +2,16 @@
 
 Este archivo `docker-compose.yml` está optimizado para funcionar con **CasaOS**, un sistema operativo NAS/hogar moderno basado en Docker.
 
+## ⚙️ Compatibilidad
+
+| Arquitectura | Soporte |
+|-------------|---------|
+| **x86_64 (amd64)** | ✅ Completamente soportado |
+| **ARM 64-bit (arm64)** | ✅ Completamente soportado |
+| **ARM 32-bit (armv7)** | ❌ No soportado |
+
+**Nota:** La mayoría de NAS y Raspberry Pi modernos usan arm64. Verifica tu arquitectura con: `uname -m`
+
 ## Características para CasaOS
 
 ✅ **Labels de integración** - Aparece automáticamente en App Store de CasaOS  
