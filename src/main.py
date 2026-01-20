@@ -85,8 +85,8 @@ class DeviceConnection:
             logger.info(f"Intentando conectar a {self.ip}:{self.port}")
             # Crear dispositivo
             self.device = AdbDeviceTcp(self.ip, self.port)
-            # Conectar con timeout de 60 segundos
-            self.device.connect(rsa_keys=self.rsa_keys, timeout=60.0)
+            # Conectar
+            self.device.connect(rsa_keys=self.rsa_keys)
             self.connected = True
             logger.info(f"Conectado exitosamente a {self.ip}:{self.port}")
             return {"status": "success", "message": f"Conectado a {self.ip}:{self.port}"}
