@@ -6,6 +6,7 @@ import json
 from typing import Optional
 from datetime import datetime
 import logging
+from pathlib import Path
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -16,19 +17,76 @@ app = FastAPI(title="ADB Control API", version="1.0.0")
 # Diccionario para almacenar conexiones
 devices = {}
 
+def generate_adb_keys():
+    """Generar claves RSA para ADB si no existen"""
+    try:
+        # Directorio para almacenar claves
+        keys_dir = Path("/app/.android")
+        keys_dir.mkdir(parents=True, exist_ok=True)
+        
+        adbkey_path = keys_dir / "adbkey"
+        
+        # Si las claves no existen, generarlas
+        if not adbkey_path.exists():
+            logger.info(f"Generando nuevas claves RSA en {adbkey_path}")
+            try:
+                from adb_shell.auth.keygen import keygen
+                keygen(str(adbkey_path))
+                logger.info("Claves RSA generadas exitosamente")
+            except Exception as e:
+                logger.error(f"Error al generar claves: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return []
+        else:
+            logger.info(f"Claves ADB encontradas en {adbkey_path}")
+        
+        # Cargar las claves
+        try:
+            from adb_shell.auth.sign_pythonrsa import PythonRSASigner
+            signer = PythonRSASigner.FromRSAKeyPath(str(adbkey_path))
+            logger.info("Claves ADB cargadas exitosamente")
+            return [signer]
+        except Exception as e:
+            logger.error(f"Error al cargar claves: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return []
+    except Exception as e:
+        logger.error(f"Error al generar/cargar claves ADB: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return []
+
 class DeviceConnection:
     def __init__(self, ip: str, port: int = 5555):
         self.ip = ip
         self.port = port
         self.device = None
         self.connected = False
+        self.rsa_keys = None  # Se cargarán al conectar
+    
+    def _ensure_keys_loaded(self):
+        """Cargar o generar claves si es necesario"""
+        if self.rsa_keys is not None:
+            logger.info(f"Claves ya cargadas: {len(self.rsa_keys)} clave(s)")
+            return  # Ya están cargadas
+        
+        logger.info("Cargando/generando claves...")
+        self.rsa_keys = generate_adb_keys()
+        logger.info(f"Claves cargadas: {len(self.rsa_keys)} clave(s) disponibles")
     
     def connect(self) -> dict:
         """Conectar al dispositivo"""
         try:
+            # Asegurar que las claves estén cargadas/generadas
+            self._ensure_keys_loaded()
+            
             logger.info(f"Intentando conectar a {self.ip}:{self.port}")
-            self.device = AdbDeviceTcp(self.ip, self.port)
-            self.device.connect(rsa_keys=[])
+            # Crear dispositivo con timeout de 60 segundos
+            self.device = AdbDeviceTcp(self.ip, self.port, default_timeout=60.0)
+            # Conectar con timeout de 60 segundos
+            self.device.connect(rsa_keys=self.rsa_keys, timeout=60.0)
             self.connected = True
             logger.info(f"Conectado exitosamente a {self.ip}:{self.port}")
             return {"status": "success", "message": f"Conectado a {self.ip}:{self.port}"}
@@ -66,6 +124,17 @@ class DeviceConnection:
             self.connected = False
             logger.error(f"Error al ejecutar comando: {str(e)}")
             return {"status": "error", "message": str(e)}
+
+# Inicializar claves al arrancar la aplicación
+@app.on_event("startup")
+async def startup_event():
+    """Generar/cargar claves RSA al iniciar la aplicación"""
+    logger.info("Inicializando claves RSA...")
+    keys = generate_adb_keys()
+    if keys:
+        logger.info(f"Claves RSA disponibles: {len(keys)} clave(s) cargada(s)")
+    else:
+        logger.warning("No se pudieron cargar las claves RSA")
 
 # Endpoints
 

@@ -2,13 +2,19 @@ version: '3.8'
 
 services:
   adb-api:
-    build: .
+    build:
+      context: ..
+      dockerfile: config/Dockerfile
     container_name: adb-control-api
     ports:
       - "8000:8000"
     volumes:
+      - adb-keys:/app/.android
       - /tmp/adb_screenshots:/tmp/screenshots
     network_mode: host
     restart: unless-stopped
     environment:
       - TZ=America/Argentina/Buenos_Aires
+
+volumes:
+  adb-keys:

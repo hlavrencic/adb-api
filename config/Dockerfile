@@ -9,14 +9,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar requirements
-COPY requirements.txt .
+COPY config/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar código
-COPY main.py .
+COPY src/main.py .
 
-# Crear directorio para screenshots
-RUN mkdir -p /tmp/screenshots
+# Crear directorios necesarios
+RUN mkdir -p /tmp/screenshots /app/.android
 
 # Exponer puerto
 EXPOSE 8000

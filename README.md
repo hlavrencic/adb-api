@@ -191,4 +191,14 @@ Usa los scripts disponibles en `home-assistant/scripts.yaml`
 
 ## Licencia
 
-MIT
+**Licencia de Uso No Comercial**
+
+Este proyecto está bajo una licencia de uso no comercial. Puedes utilizarlo para:
+- ✅ Uso personal y educativo
+- ✅ Investigación académica
+- ✅ Desarrollo y testing interno
+- ✅ Proyectos de código abierto no comerciales
+
+**Uso comercial prohibido** sin autorización explícita. Para licencias comerciales, contacta a los autores.
+
+Ver [LICENSE](LICENSE) para más detalles.
