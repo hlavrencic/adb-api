@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  adb-api:
+    image: hn8888/adb-api:latest
+    container_name: adb-control-api
+    hostname: adb-control-api
+    
+    # CasaOS App Store Integration
+    x-casaos-category: Media
+    x-casaos-description: API para controlar dispositivos Android mediante ADB
+    x-casaos-icon: "https://raw.githubusercontent.com/hn8888/docker-adb-api/main/.icon.png"
+    
+    ports:
+      - "8000:8000"
+    
+    volumes:
+      - adb-keys:/app/.android
+      - adb-screenshots:/tmp/screenshots
+    
+    network_mode: host
+    restart: unless-stopped
+    
+    environment:
+      - TZ=America/Argentina/Buenos_Aires
+      - LOG_LEVEL=INFO
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  adb-keys:
+    driver: local
+  adb-screenshots:
+    driver: local

@@ -2,19 +2,108 @@ version: '3.8'
 
 services:
   adb-api:
+    image: hn8888/adb-api:latest
     build:
       context: ..
       dockerfile: config/Dockerfile
     container_name: adb-control-api
+    hostname: adb-control-api
+    
+    # CasaOS Labels
+    x-casaos-category: Media
+    x-casaos-description: API Docker para controlar dispositivos Android mediante ADB
+    x-casaos-icon: "https://raw.githubusercontent.com/hn8888/docker-adb-api/main/.icon.png"
+    x-casaos-screenshot: []
+    x-casaos-author: hn8888
+    
+    labels:
+      # Descripción para docker
+      description: "ADB Control API - Controlador de dispositivos Android"
+      maintainer: "hn8888"
+    
     ports:
-      - "8000:8000"
+      - target: 8000
+        published: 8000
+        protocol: tcp
+        mode: host
+    
     volumes:
+      # Almacenamiento persistente de claves RSA
       - adb-keys:/app/.android
-      - /tmp/adb_screenshots:/tmp/screenshots
+      # Directorio para screenshots
+      - adb-screenshots:/tmp/screenshots
+    
+    # Usar host network para acceso directo a dispositivos ADB
     network_mode: host
+    
+    # Reinicio automático
     restart: unless-stopped
+    
+    # Recursos
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    
+    # Variables de entorno
     environment:
+      # Timezone
       - TZ=America/Argentina/Buenos_Aires
+      # Configuración de logging
+      - LOG_LEVEL=INFO
+    
+    # Health check para monitoreo
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Capacidades necesarias para ADB
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
 
+# Volúmenes persistentes
 volumes:
   adb-keys:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./adb-keys
+  
+  adb-screenshots:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./screenshots
+
+# Información de CasaOS
+x-casaos-app-store:
+  title: ADB Control API
+  version: "1.0.0"
+  category: Media
+  author: hn8888
+  developer_url: "https://github.com/hn8888/docker-adb-api"
+  icon: "https://raw.githubusercontent.com/hn8888/docker-adb-api/main/.icon.png"
+  screenshot_url:
+    - "https://raw.githubusercontent.com/hn8888/docker-adb-api/main/docs/screenshot1.png"
+  description: "API REST para controlar dispositivos Android mediante ADB. Captura pantalla, reproduce videos, envía comandos personalizados."
+  tips: |
+    - Habilita depuración ADB en tu dispositivo Android
+    - Autoriza la conexión cuando se solicite en el dispositivo
+    - Usa /docs para documentación interactiva
+  tagline: "Control remoto de dispositivos Android"
+  tags:
+    - "android"
+    - "adb"
+    - "media"
+    - "api"
+    - "docker"
