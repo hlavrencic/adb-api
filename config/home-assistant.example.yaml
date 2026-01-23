@@ -1,0 +1,302 @@
+# Configuración de Home Assistant para ADB Control API
+# 
+# Este archivo de ejemplo muestra cómo integrar la API de Control ADB con Home Assistant
+# usando shell_commands para ejecutar comandos en dispositivos Android de forma remota.
+#
+# INSTALACIÓN:
+# 1. Copia el contenido relevant a tu archivo configuration.yaml de Home Assistant
+# 2. Reemplaza los valores de IP_DISPOSITIVO y puerto según tu configuración
+# 3. Reinicia Home Assistant o recarga la configuración
+#
+# NOTA: La API debe estar corriendo y accesible desde Home Assistant
+# Default: http://localhost:8000 (si está en el mismo host)
+
+# ============================================================================
+# CONFIGURACIÓN GENERAL DE HOME ASSISTANT
+# ============================================================================
+
+homeassistant:
+  name: Home
+  latitude: !secret latitude
+  longitude: !secret longitude
+  elevation: 0
+  unit_system: metric
+  time_zone: America/Argentina/Buenos_Aires
+  customize: !include customize.yaml
+
+# ============================================================================
+# SHELL COMMANDS - Específicos por acción
+# ============================================================================
+# Comandos predefinidos para las acciones más frecuentes
+# NOTA: Cada comando es específico porque Home Assistant tiene limitaciones
+# con caracteres especiales (&, ?, etc) en templates de shell_command
+
+shell_command:
+  # ========== Device Management ==========
+  adb_connect_device: 'curl -s -X POST "http://localhost:8000/devices/connect?ip={{ device_ip }}&port=5555"'
+  adb_disconnect_device: 'curl -s -X POST "http://localhost:8000/devices/disconnect?device_ip={{ device_ip }}"'
+  adb_list_devices: 'curl -s "http://localhost:8000/devices" | jq .'
+  adb_check_status: 'curl -s "http://localhost:8000/status?device_ip={{ device_ip }}"'
+  adb_health: 'curl -s "http://localhost:8000/"'
+  
+  # ========== Device Information ==========
+  adb_device_info: 'curl -s "http://localhost:8000/device/info?device_ip={{ device_ip }}" | jq .'
+  adb_current_app: 'curl -s "http://localhost:8000/device/current-app?device_ip={{ device_ip }}" | jq .'
+  adb_installed_apps: 'curl -s "http://localhost:8000/device/installed-apps?device_ip={{ device_ip }}&limit=30" | jq .'
+  adb_logcat: 'curl -s "http://localhost:8000/device/logcat?device_ip={{ device_ip }}&lines=50" | jq .'
+  
+  # ========== Volume Control ==========
+  adb_volume_current: 'curl -s "http://localhost:8000/device/volume/current?device_ip={{ device_ip }}"'
+  adb_volume_up: 'curl -s -X POST "http://localhost:8000/device/volume/increase?device_ip={{ device_ip }}&steps={{ steps | default(1) }}"'
+  adb_volume_down: 'curl -s -X POST "http://localhost:8000/device/volume/decrease?device_ip={{ device_ip }}&steps={{ steps | default(1) }}"'
+  adb_volume_mute: 'curl -s -X POST "http://localhost:8000/device/volume/mute?device_ip={{ device_ip }}"'
+  adb_volume_set: 'curl -s -X POST "http://localhost:8000/device/volume/set?device_ip={{ device_ip }}&level={{ level }}"'
+  
+  # ========== Video Control ==========
+  adb_play_video: 'curl -s -X POST "http://localhost:8000/play?device_ip={{ device_ip }}&video_url={{ video_url }}"'
+  adb_pause_video: 'curl -s -X POST "http://localhost:8000/stop?device_ip={{ device_ip }}"'
+  adb_exit_app: 'curl -s -X POST "http://localhost:8000/exit?device_ip={{ device_ip }}"'
+  
+  # ========== Device Operations ==========
+  adb_screenshot: 'curl -s "http://localhost:8000/screenshot?device_ip={{ device_ip }}" -o /tmp/adb_screenshot.png && echo "Screenshot saved"'
+  adb_custom_command: 'curl -s -X POST "http://localhost:8000/command?device_ip={{ device_ip }}&command={{ command }}"'
+
+# ============================================================================
+# SCRIPT AUTOMATIONS - Ejemplos de automatizaciones
+# ============================================================================
+
+automation:
+  # Automatización: Reproducir YouTube cuando alguien llega a casa
+  - alias: "ADB - Play YouTube on Arrival"
+    description: "Reproduce un video de YouTube cuando alguien llega"
+    trigger:
+      platform: state
+      entity_id: person.user1
+      to: home
+    action:
+      service: shell_command.adb_play_video
+      data:
+        device_ip: "192.168.0.161"
+        video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+  
+  # Automatización: Silenciar volumen a cierta hora
+  - alias: "ADB - Mute at Bedtime"
+    description: "Silencia el dispositivo a las 22:00"
+    trigger:
+      platform: time
+      at: "22:00:00"
+    action:
+      service: shell_command.adb_volume_mute
+      data:
+        device_ip: "192.168.0.161"
+  
+  # Automatización: Aumentar volumen gradualmente
+  - alias: "ADB - Increase Volume Gradually"
+    description: "Aumenta el volumen 2 pasos cada 5 minutos"
+    trigger:
+      platform: time_pattern
+      minutes: "/5"
+    condition:
+      - condition: state
+        entity_id: input_boolean.adb_volume_increase_enabled
+        state: "on"
+    action:
+      service: shell_command.adb_volume_up
+      data:
+        device_ip: "192.168.0.161"
+        steps: 2
+
+# ============================================================================
+# INPUT HELPERS - Para controlar parametrización
+# ============================================================================
+
+input_boolean:
+  adb_volume_increase_enabled:
+    name: "ADB Volume Increase Enabled"
+    icon: mdi:volume-plus
+
+input_text:
+  adb_device_ip:
+    name: "ADB Device IP"
+    icon: mdi:android
+    initial: "192.168.0.161"
+
+input_number:
+  adb_volume_level:
+    name: "ADB Volume Level"
+    icon: mdi:volume-high
+    min: 0
+    max: 15
+    step: 1
+    unit_of_measurement: "level"
+
+input_text:
+  adb_youtube_url:
+    name: "YouTube URL to Play"
+    icon: mdi:youtube
+    initial: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+# ============================================================================
+# SCRIPT HELPERS - Para ejecutar acciones complejas
+# ============================================================================
+
+script:
+  # Script: Reproducir video con URL personalizada
+  adb_play_custom_video:
+    description: "Reproduce un video de YouTube personalizado"
+    fields:
+      device_ip:
+        description: "IP del dispositivo Android"
+        example: "192.168.0.161"
+      video_url:
+        description: "URL de YouTube"
+        example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    sequence:
+      - service: shell_command.adb_play_video
+        data:
+          device_ip: "{{ device_ip }}"
+          video_url: "{{ video_url }}"
+      - delay:
+          seconds: 2
+      - service: notify.notify
+        data:
+          message: "Video iniciado en {{ device_ip }}"
+  
+  # Script: Establecer volumen con confirmación
+  adb_set_volume_safe:
+    description: "Establece el volumen con validación"
+    fields:
+      device_ip:
+        description: "IP del dispositivo"
+        example: "192.168.0.161"
+      level:
+        description: "Nivel de volumen (0-15)"
+        example: 7
+    sequence:
+      - condition: template
+        value_template: "{{ level is defined and level | int(0) >= 0 and level | int(0) <= 15 }}"
+      - service: shell_command.adb_volume_set
+        data:
+          device_ip: "{{ device_ip }}"
+          level: "{{ level }}"
+      - service: notify.notify
+        data:
+          message: "Volumen establecido a {{ level }} en {{ device_ip }}"
+      - condition: template
+        value_template: "{{ level is not defined or level | int(0) < 0 or level | int(0) > 15 }}"
+      - service: notify.notify
+        data:
+          message: "ERROR: Volumen debe estar entre 0 y 15"
+
+  # Script: Captura de pantalla y guarda en Home Assistant
+  adb_screenshot_save:
+    description: "Toma captura de pantalla y la guarda"
+    fields:
+      device_ip:
+        description: "IP del dispositivo"
+        example: "192.168.0.161"
+    sequence:
+      - service: shell_command.adb_screenshot
+        data:
+          device_ip: "{{ device_ip }}"
+      - delay:
+          seconds: 1
+      - service: notify.notify
+        data:
+          message: "Screenshot capturada de {{ device_ip }}"
+
+# ============================================================================
+# REST SENSOR - Para monitoreo en tiempo real
+# ============================================================================
+
+rest:
+  - resource: http://localhost:8000/
+    name: adb_api_health
+    scan_interval: 30
+    json_attributes:
+      - status
+      - version
+      - connected_devices
+    value_template: "{{ value_json.status }}"
+
+# ============================================================================
+# TEMPLATE SENSORS - Para información procesada
+# ============================================================================
+
+template:
+  - sensor:
+      - name: "ADB API Status"
+        unique_id: adb_api_status
+        state: "{{ state_attr('rest_api_adb_api_health', 'status') | default('unknown') }}"
+        icon: mdi:api
+      
+      - name: "ADB Connected Devices"
+        unique_id: adb_connected_devices
+        state: "{{ state_attr('rest_api_adb_api_health', 'connected_devices') | default('0') }}"
+        icon: mdi:android
+        unit_of_measurement: "devices"
+
+# ============================================================================
+# EJEMPLOS DE USO EN SERVICE CALLS
+# ============================================================================
+#
+# Desde Developer Tools > Services, puedes hacer calls como:
+#
+# 1. Reproducir video:
+#    Service: shell_command.adb_play_video
+#    Data:
+#      device_ip: "192.168.0.161"
+#      video_url: "https://www.youtube.com/watch?v=VIDEO_ID"
+#
+# 2. Aumentar volumen:
+#    Service: shell_command.adb_volume_up
+#    Data:
+#      device_ip: "192.168.0.161"
+#      steps: 3
+#
+# 3. Establecer volumen:
+#    Service: shell_command.adb_volume_set
+#    Data:
+#      device_ip: "192.168.0.161"
+#      level: 7
+#
+# 4. Ejecutar script personalizado:
+#    Service: script.adb_play_custom_video
+#    Data:
+#      device_ip: "192.168.0.161"
+#      video_url: "https://www.youtube.com/watch?v=VIDEO_ID"
+#
+# 5. Tomar captura de pantalla:
+#    Service: shell_command.adb_screenshot
+#    Data:
+#      device_ip: "192.168.0.161"
+#
+# ============================================================================
+# NOTAS IMPORTANTES
+# ============================================================================
+#
+# 1. ACCESO A LA API:
+#    - Local: Si Home Assistant está en el mismo host que la API, usa http://localhost:8000
+#    - Remoto: Si está en otro host, usa http://IP_API:8000
+#    - Ejemplo: http://192.168.0.100:8000
+#
+# 2. SEGURIDAD:
+#    - NO guardes IPs o URLs sensibles en configuration.yaml visible
+#    - Usa !secret para datos sensibles
+#    - Ejemplo: device_ip: !secret adb_device_ip
+#
+# 3. PERMISOS:
+#    - El usuario que ejecuta Home Assistant debe tener permiso para ejecutar curl
+#    - En Docker/Kubernetes, asegúrate de que curl esté instalado en la imagen
+#
+# 4. DEBUGGING:
+#    - Revisa los logs de Home Assistant: tail -f home-assistant.log
+#    - Usa curl directamente para probar endpoints:
+#      curl "http://localhost:8000/devices"
+#
+# 5. PARAMETRIZACIÓN:
+#    - Usa input_helpers (input_text, input_number, input_boolean) para
+#      parametrizar valores en automaciones y scripts
+#    - Accede con: {{ states('input_text.adb_device_ip') }}
+#
+# ============================================================================
