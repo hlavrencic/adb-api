@@ -447,6 +447,10 @@ async def stop_video(
 ):
     """
     Pausa la reproducción actual (envía tecla espacio).
+    
+    **Parámetros:**
+    - **device_ip**: IP del dispositivo (requerido)
+    """
     try:
         device = devices[device_ip]
         cmd = "input keyevent KEYCODE_SPACE"
@@ -478,6 +482,10 @@ async def exit_app(
 ):
     """
     Cierra la aplicación actual (simula presionar tecla Back).
+    
+    **Parámetros:**
+    - **device_ip**: IP del dispositivo (requerido)
+    """
     try:
         device = devices[device_ip]
         cmd = "input keyevent KEYCODE_BACK"
@@ -509,6 +517,7 @@ async def get_screenshot(
 ):
     """
     Obtiene una captura de pantalla del dispositivo.
+    """
     try:
         device = devices[device_ip]
         
@@ -552,6 +561,10 @@ async def get_status(
 ):
     """
     Verifica el estado actual de conexión del dispositivo.
+    
+    **Parámetros:**
+    - **device_ip**: IP del dispositivo (requerido)
+    """
     try:
         device = devices[device_ip]
         
@@ -590,6 +603,7 @@ async def disconnect_device(
 ):
     """
     Desconecta un dispositivo registrado y lo elimina del registro.
+    """
     try:
         # Validar parámetros
         validate_device_ip(device_ip)
@@ -633,6 +647,7 @@ async def send_custom_command(
     - `ps` - Listar procesos
     - `ls /sdcard` - Listar archivos
     - `getprop ro.build.version.release` - Obtener versión de Android
+    """
     try:
         # Validar parámetros
         validate_required_params(device_ip=device_ip, command=command)
@@ -676,6 +691,7 @@ async def get_device_info(
     - **storage_info**: Información de almacenamiento
     - **serial_number**: Número de serie único
     - **battery_info**: Información de la batería
+    """
     try:
         device = devices[device_ip]
         
@@ -748,6 +764,10 @@ async def get_current_app(
 ):
     """
     Obtiene la aplicación Android actualmente en pantalla.
+    
+    **Parámetros:**
+    - **device_ip**: IP del dispositivo (requerido)
+    """
     try:
         device = devices[device_ip]
         
@@ -816,6 +836,7 @@ async def get_installed_apps(
     **Información retornada:**
     - **package_name**: Nombre del paquete (ej: com.google.android.youtube)
     - **is_system_app**: Indica si es aplicación del sistema
+    """
     try:
         # Validar parámetros
         validate_required_params(device_ip=device_ip)
@@ -864,10 +885,30 @@ async def get_installed_apps(
         logger.error(f"Error en /device/installed-apps: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al obtener lista de aplicaciones: {str(e)}")
 
-@app.get("/device/logcat")
+@app.get(
+    "/device/logcat",
+    tags=["Información del Dispositivo"],
+    summary="Obtener logs del sistema",
+    responses={
+        200: {"description": "Logs del dispositivo"},
+        400: {"description": "Parámetro lines fuera de rango"},
+        503: {"description": "Error al obtener logs"}
+    }
+)
 @ensure_device_connection
-async def get_device_logcat(device_ip: str, lines: int = 50, filter_text: Optional[str] = None):
-    """Obtener últimas líneas del logcat del dispositivo"""
+async def get_device_logcat(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo"),
+    lines: int = Query(50, description="Cantidad de líneas a obtener (1-1000)", ge=1, le=1000),
+    filter_text: Optional[str] = Query(None, description="Filtro opcional (ej: 'error', 'warning')")
+):
+    """
+    Obtiene los últimos logs del sistema (logcat) del dispositivo.
+    
+    **Parámetros:**
+    - **device_ip**: IP del dispositivo (requerido)
+    - **lines**: Cantidad de líneas a retornar (default: 50, max: 1000)
+    - **filter_text**: Texto para filtrar logs (opcional)
+    """
     try:
         # Validar parámetros
         validate_required_params(device_ip=device_ip)
@@ -903,10 +944,22 @@ async def get_device_logcat(device_ip: str, lines: int = 50, filter_text: Option
         logger.error(f"Error en /device/logcat: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al obtener información del dispositivo: {str(e)}")
 
-@app.get("/device/volume/current")
+@app.get(
+    "/device/volume/current",
+    tags=["Control de Volumen"],
+    summary="Obtener volumen actual",
+    responses={
+        200: {"description": "Información de volumen"},
+        503: {"description": "Error al obtener volumen"}
+    }
+)
 @ensure_device_connection
-async def get_current_volume(device_ip: str):
-    """Obtener el nivel de volumen actual del dispositivo"""
+async def get_current_volume(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo")
+):
+    """
+    Obtiene el nivel de volumen actual del dispositivo.
+    """
     try:
         device = devices[device_ip]
         
@@ -928,10 +981,28 @@ async def get_current_volume(device_ip: str):
         logger.error(f"Error en /device/volume/current: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al obtener volumen: {str(e)}")
 
-@app.post("/device/volume/increase")
+@app.post(
+    "/device/volume/increase",
+    tags=["Control de Volumen"],
+    summary="Aumentar volumen",
+    responses={
+        200: {"description": "Volumen aumentado"},
+        400: {"description": "Parámetro steps fuera de rango"},
+        503: {"description": "Error al aumentar volumen"}
+    }
+)
 @ensure_device_connection
-async def increase_volume(device_ip: str, steps: int = 1):
-    """Aumentar el volumen del dispositivo"""
+async def increase_volume(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo"),
+    steps: int = Query(1, description="Cantidad de pasos a aumentar (1-15)", ge=1, le=15)
+):
+    """
+    Aumenta el volumen del dispositivo.
+    
+    **Parámetros:**
+    - **device_ip**: IP del dispositivo (requerido)
+    - **steps**: Pasos a aumentar (default: 1, max: 15)
+    """
     try:
         # Validar parámetros
         validate_required_params(device_ip=device_ip)
@@ -960,10 +1031,28 @@ async def increase_volume(device_ip: str, steps: int = 1):
         logger.error(f"Error en /device/volume/increase: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al aumentar volumen: {str(e)}")
 
-@app.post("/device/volume/decrease")
+@app.post(
+    "/device/volume/decrease",
+    tags=["Control de Volumen"],
+    summary="Disminuir volumen",
+    responses={
+        200: {"description": "Volumen disminuido"},
+        400: {"description": "Parámetro steps fuera de rango"},
+        503: {"description": "Error al disminuir volumen"}
+    }
+)
 @ensure_device_connection
-async def decrease_volume(device_ip: str, steps: int = 1):
-    """Disminuir el volumen del dispositivo"""
+async def decrease_volume(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo"),
+    steps: int = Query(1, description="Cantidad de pasos a disminuir (1-15)", ge=1, le=15)
+):
+    """
+    Disminuye el volumen del dispositivo.
+    
+    **Parámetros:**
+    - **device_ip**: IP del dispositivo (requerido)
+    - **steps**: Pasos a disminuir (default: 1, max: 15)
+    """
     try:
         # Validar parámetros
         validate_required_params(device_ip=device_ip)
@@ -992,10 +1081,25 @@ async def decrease_volume(device_ip: str, steps: int = 1):
         logger.error(f"Error en /device/volume/decrease: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al disminuir volumen: {str(e)}")
 
-@app.post("/device/volume/mute")
+@app.post(
+    "/device/volume/mute",
+    tags=["Control de Volumen"],
+    summary="Silenciar dispositivo",
+    responses={
+        200: {"description": "Dispositivo silenciado"},
+        503: {"description": "Error al silenciar"}
+    }
+)
 @ensure_device_connection
-async def mute_device(device_ip: str):
-    """Silenciar el dispositivo"""
+async def mute_device(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo")
+):
+    """
+    Silencia el dispositivo (establece volumen en mute).
+    
+    **Parámetros:**
+    - **device_ip**: IP del dispositivo (requerido)
+    """
     try:
         device = devices[device_ip]
         
@@ -1015,27 +1119,31 @@ async def mute_device(device_ip: str):
         logger.error(f"Error en /device/volume/mute: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al silenciar dispositivo: {str(e)}")
 
-@app.post("/device/volume/set")
+@app.post(
+    "/device/volume/set",
+    tags=["Control de Volumen"],
+    summary="Establecer nivel de volumen",
+    responses={
+        200: {"description": "Volumen establecido correctamente"},
+        400: {"description": "Parametros invalidos"},
+        503: {"description": "Error al establecer volumen"}
+    }
+)
 @ensure_device_connection
-async def set_volume(device_ip: str, level: int):
-    """Establecer el volumen a un nivel específico (0-15)"""
+async def set_volume(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo"),
+    level: int = Query(..., ge=0, le=15, description="Nivel de volumen (0-15)")
+):
+    # Establece el nivel de volumen del dispositivo a un valor especifico (0-15).
     try:
-        # Validar parámetros
         validate_required_params(device_ip=device_ip)
         if not isinstance(level, int) or level < 0 or level > 15:
-            raise HTTPException(status_code=400, detail="level debe ser un número entero entre 0 y 15")
+            raise HTTPException(status_code=400, detail="level debe ser un numero entero entre 0 y 15")
         
         device = devices[device_ip]
-        
-        # Primero obtener el volumen actual (0 pasos = mute, 15 pasos = máximo)
-        # Usar cmds para establecer volumen directamente si es posible
-        # Alternativamente, usar múltiples pulsaciones de volume up/down
-        
-        # Approach: Bajar volumen al mínimo primero, luego subir al nivel deseado
         cmd = "input keyevent KEYCODE_VOLUME_MUTE"
         device.execute_command(cmd)
         
-        # Ahora subir al nivel deseado
         results = []
         for _ in range(level):
             cmd = "input keyevent KEYCODE_VOLUME_UP"
