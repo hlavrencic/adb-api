@@ -7,6 +7,7 @@ from typing import Optional
 from datetime import datetime
 import logging
 from pathlib import Path
+from functools import wraps
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -16,6 +17,41 @@ app = FastAPI(title="ADB Control API", version="1.2.0")
 
 # Diccionario para almacenar conexiones
 devices = {}
+
+def ensure_device_connection(func):
+    """
+    Decorador que asegura que el dispositivo esté conectado.
+    Si no está conectado, intenta conectar automáticamente.
+    
+    El parámetro device_ip debe estar presente en los argumentos de la función.
+    """
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        device_ip = kwargs.get('device_ip') or (args[0] if args else None)
+        port = kwargs.get('port', 5555)
+        
+        if not device_ip:
+            raise HTTPException(status_code=400, detail="device_ip es requerido")
+        
+        # Verificar si el dispositivo existe en el diccionario
+        if device_ip not in devices:
+            logger.info(f"Dispositivo {device_ip} no encontrado en conexiones, conectando automáticamente...")
+            # Intentar conectar automáticamente
+            result = await connect_device(device_ip, port)
+            if result.get("status") == "error":
+                raise HTTPException(status_code=400, detail=f"No se pudo conectar al dispositivo: {result.get('message')}")
+        
+        # Si el dispositivo existe pero no está conectado, reconectar
+        if not devices[device_ip].connected:
+            logger.info(f"Dispositivo {device_ip} desconectado, reconectando...")
+            reconnect_result = devices[device_ip].connect()
+            if reconnect_result["status"] == "error":
+                raise HTTPException(status_code=400, detail=f"No se pudo reconectar al dispositivo: {reconnect_result.get('message')}")
+        
+        # Llamar a la función original
+        return await func(*args, **kwargs)
+    
+    return wrapper
 
 def generate_adb_keys():
     """Generar claves RSA para ADB si no existen"""
@@ -212,17 +248,13 @@ async def list_devices():
     return {"devices": device_list, "count": len(device_list)}
 
 @app.post("/play")
+@ensure_device_connection
 async def play_video(device_ip: str, video_url: str):
     """Reproducir video de YouTube"""
     try:
         # Validar URL
         if "youtube.com" not in video_url and "youtu.be" not in video_url:
             raise HTTPException(status_code=400, detail="URL debe ser de YouTube")
-        
-        if device_ip not in devices or not devices[device_ip].connected:
-            connect_result = await connect_device(device_ip)
-            if connect_result["status"] == "error":
-                raise HTTPException(status_code=400, detail=connect_result)
         
         device = devices[device_ip]
         cmd = f'am start -a android.intent.action.VIEW -d "{video_url}"'
@@ -241,12 +273,10 @@ async def play_video(device_ip: str, video_url: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/stop")
+@ensure_device_connection
 async def stop_video(device_ip: str):
     """Pausar video (espacio)"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         device = devices[device_ip]
         cmd = "input keyevent KEYCODE_SPACE"
         result = device.execute_command(cmd)
@@ -263,12 +293,10 @@ async def stop_video(device_ip: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/exit")
+@ensure_device_connection
 async def exit_app(device_ip: str):
     """Salir de la aplicación (Back)"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         device = devices[device_ip]
         cmd = "input keyevent KEYCODE_BACK"
         result = device.execute_command(cmd)
@@ -285,12 +313,10 @@ async def exit_app(device_ip: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/screenshot")
+@ensure_device_connection
 async def get_screenshot(device_ip: str):
     """Descargar captura de pantalla"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         device = devices[device_ip]
         
         # Crear directorio temporal si no existe
@@ -319,16 +345,10 @@ async def get_screenshot(device_ip: str):
         raise HTTPException(status_code=500, detail=f"Error al descargar screenshot: {str(e)}")
 
 @app.get("/status")
+@ensure_device_connection
 async def get_status(device_ip: str):
     """Obtener estado del dispositivo"""
     try:
-        if device_ip not in devices:
-            return {
-                "device": device_ip,
-                "status": "not_connected",
-                "connected": False
-            }
-        
         device = devices[device_ip]
         
         # Intentar ejecutar comando simple para verificar conexión
@@ -367,12 +387,10 @@ async def disconnect_device(device_ip: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/command")
+@ensure_device_connection
 async def send_custom_command(device_ip: str, command: str):
     """Enviar comando personalizado ADB shell"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         device = devices[device_ip]
         result = device.execute_command(command)
         
@@ -388,12 +406,10 @@ async def send_custom_command(device_ip: str, command: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/device/info")
+@ensure_device_connection
 async def get_device_info(device_ip: str):
     """Obtener información detallada del dispositivo (modelo, versión, RAM, etc.)"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         device = devices[device_ip]
         
         # Obtener información del dispositivo
@@ -451,12 +467,10 @@ async def get_device_info(device_ip: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/device/current-app")
+@ensure_device_connection
 async def get_current_app(device_ip: str):
     """Obtener la aplicación actualmente en pantalla"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         device = devices[device_ip]
         
         # Obtener la ventana enfocada
@@ -500,12 +514,10 @@ async def get_current_app(device_ip: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/device/installed-apps")
+@ensure_device_connection
 async def get_installed_apps(device_ip: str, limit: int = 20):
     """Obtener lista de aplicaciones instaladas en el dispositivo"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         device = devices[device_ip]
         
         # Obtener lista de paquetes
@@ -549,12 +561,10 @@ async def get_installed_apps(device_ip: str, limit: int = 20):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/device/logcat")
+@ensure_device_connection
 async def get_device_logcat(device_ip: str, lines: int = 50, filter_text: Optional[str] = None):
     """Obtener últimas líneas del logcat del dispositivo"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         device = devices[device_ip]
         
         # Obtener logcat
@@ -585,12 +595,10 @@ async def get_device_logcat(device_ip: str, lines: int = 50, filter_text: Option
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/device/volume/current")
+@ensure_device_connection
 async def get_current_volume(device_ip: str):
     """Obtener el nivel de volumen actual del dispositivo"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         device = devices[device_ip]
         
         # Obtener información de volumen actual
@@ -612,12 +620,10 @@ async def get_current_volume(device_ip: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/device/volume/increase")
+@ensure_device_connection
 async def increase_volume(device_ip: str, steps: int = 1):
     """Aumentar el volumen del dispositivo"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         if steps < 1 or steps > 15:
             raise HTTPException(status_code=400, detail="steps debe estar entre 1 y 15")
         
@@ -644,12 +650,10 @@ async def increase_volume(device_ip: str, steps: int = 1):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/device/volume/decrease")
+@ensure_device_connection
 async def decrease_volume(device_ip: str, steps: int = 1):
     """Disminuir el volumen del dispositivo"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         if steps < 1 or steps > 15:
             raise HTTPException(status_code=400, detail="steps debe estar entre 1 y 15")
         
@@ -676,12 +680,10 @@ async def decrease_volume(device_ip: str, steps: int = 1):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/device/volume/mute")
+@ensure_device_connection
 async def mute_device(device_ip: str):
     """Silenciar el dispositivo"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         device = devices[device_ip]
         
         # Silenciar usando MUTE keyevent
@@ -701,12 +703,10 @@ async def mute_device(device_ip: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/device/volume/set")
+@ensure_device_connection
 async def set_volume(device_ip: str, level: int):
     """Establecer el volumen a un nivel específico (0-15)"""
     try:
-        if device_ip not in devices or not devices[device_ip].connected:
-            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
-        
         if level < 0 or level > 15:
             raise HTTPException(status_code=400, detail="level debe estar entre 0 y 15")
         
