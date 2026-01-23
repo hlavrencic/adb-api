@@ -12,7 +12,7 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="ADB Control API", version="1.0.0")
+app = FastAPI(title="ADB Control API", version="1.2.0")
 
 # Diccionario para almacenar conexiones
 devices = {}
@@ -140,23 +140,25 @@ async def startup_event():
 
 @app.get("/")
 async def root():
-    """Raíz - información de la API"""
-    return {
-        "name": "ADB Control API",
-        "version": "1.0.0",
-        "description": "API para controlar dispositivos Android mediante ADB",
-        "endpoints": {
-            "POST /devices/connect": "Conectar a un dispositivo",
-            "GET /devices": "Listar dispositivos conectados",
-            "POST /play": "Reproducir video de YouTube",
-            "POST /stop": "Pausar video",
-            "POST /exit": "Salir de la aplicación",
-            "GET /screenshot": "Descargar captura de pantalla",
-            "GET /status": "Obtener estado del dispositivo",
-            "POST /devices/disconnect": "Desconectar dispositivo",
-            "GET /docs": "Documentación Swagger"
+    """Healthcheck - verifica que la API está corriendo y operacional"""
+    try:
+        return {
+            "name": "ADB Control API",
+            "version": "1.2.0",
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "connected_devices": len(devices),
+            "uptime_seconds": int((datetime.now() - datetime.now()).total_seconds())
         }
-    }
+    except Exception as e:
+        logger.error(f"Error en healthcheck: {str(e)}")
+        return {
+            "name": "ADB Control API",
+            "version": "1.2.0",
+            "status": "degraded",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }, 503
 
 @app.post("/devices/connect")
 async def connect_device(ip: str, port: int = 5555):
@@ -383,6 +385,359 @@ async def send_custom_command(device_ip: str, command: str):
         raise
     except Exception as e:
         logger.error(f"Error en /command: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/device/info")
+async def get_device_info(device_ip: str):
+    """Obtener información detallada del dispositivo (modelo, versión, RAM, etc.)"""
+    try:
+        if device_ip not in devices or not devices[device_ip].connected:
+            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
+        
+        device = devices[device_ip]
+        
+        # Obtener información del dispositivo
+        info = {}
+        
+        # Modelo del dispositivo
+        model_result = device.execute_command("getprop ro.product.model")
+        if model_result["status"] == "success":
+            info["model"] = model_result["output"].strip()
+        
+        # Fabricante
+        manufacturer_result = device.execute_command("getprop ro.product.manufacturer")
+        if manufacturer_result["status"] == "success":
+            info["manufacturer"] = manufacturer_result["output"].strip()
+        
+        # Versión de Android
+        android_version_result = device.execute_command("getprop ro.build.version.release")
+        if android_version_result["status"] == "success":
+            info["android_version"] = android_version_result["output"].strip()
+        
+        # Nivel de API
+        api_level_result = device.execute_command("getprop ro.build.version.sdk")
+        if api_level_result["status"] == "success":
+            info["api_level"] = api_level_result["output"].strip()
+        
+        # RAM total
+        ram_result = device.execute_command("cat /proc/meminfo | grep MemTotal")
+        if ram_result["status"] == "success":
+            info["total_ram"] = ram_result["output"].strip()
+        
+        # Almacenamiento
+        storage_result = device.execute_command("df /data")
+        if storage_result["status"] == "success":
+            info["storage_info"] = storage_result["output"].strip()
+        
+        # Identificador único del dispositivo
+        device_id_result = device.execute_command("getprop ro.serialno")
+        if device_id_result["status"] == "success":
+            info["serial_number"] = device_id_result["output"].strip()
+        
+        # Battery level
+        battery_result = device.execute_command("dumpsys battery | grep 'level'")
+        if battery_result["status"] == "success":
+            info["battery_info"] = battery_result["output"].strip()
+        
+        return {
+            "device": device_ip,
+            "info": info,
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en /device/info: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/device/current-app")
+async def get_current_app(device_ip: str):
+    """Obtener la aplicación actualmente en pantalla"""
+    try:
+        if device_ip not in devices or not devices[device_ip].connected:
+            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
+        
+        device = devices[device_ip]
+        
+        # Obtener la ventana enfocada
+        focusedwindow_result = device.execute_command("dumpsys window windows | grep 'mCurrentFocus'")
+        
+        current_app = None
+        package_name = None
+        
+        if focusedwindow_result["status"] == "success":
+            output = focusedwindow_result["output"].strip()
+            # Parsear el resultado para extraer el nombre del package
+            if output:
+                # Ejemplo: mCurrentFocus=Window{123456 u0 com.google.android.youtube/com.google.android.youtube.MainActivity}
+                import re
+                match = re.search(r'(\S+)/(\S+)\}', output)
+                if match:
+                    package_name = match.group(1)
+                    current_app = match.group(2)
+        
+        # Obtener información de la aplicación (si existe el package)
+        app_info = {}
+        if package_name:
+            label_result = device.execute_command(f"dumpsys package {package_name} | grep 'versionCode'")
+            if label_result["status"] == "success":
+                app_info["version_info"] = label_result["output"].strip()
+        
+        return {
+            "device": device_ip,
+            "current_app": {
+                "package": package_name,
+                "activity": current_app,
+                "info": app_info
+            },
+            "raw_output": focusedwindow_result.get("output", ""),
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en /device/current-app: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/device/installed-apps")
+async def get_installed_apps(device_ip: str, limit: int = 20):
+    """Obtener lista de aplicaciones instaladas en el dispositivo"""
+    try:
+        if device_ip not in devices or not devices[device_ip].connected:
+            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
+        
+        device = devices[device_ip]
+        
+        # Obtener lista de paquetes
+        packages_result = device.execute_command("pm list packages")
+        
+        apps = []
+        if packages_result["status"] == "success":
+            lines = packages_result["output"].strip().split('\n')
+            # Limitar a los últimos 'limit' paquetes
+            selected_packages = lines[-limit:] if len(lines) > limit else lines
+            
+            for line in selected_packages:
+                if line.startswith("package:"):
+                    package_name = line.replace("package:", "").strip()
+                    apps.append({
+                        "package_name": package_name
+                    })
+        
+        # Obtener lista de aplicaciones del sistema
+        system_apps_result = device.execute_command("pm list packages -s")
+        system_packages = set()
+        if system_apps_result["status"] == "success":
+            for line in system_apps_result["output"].strip().split('\n'):
+                if line.startswith("package:"):
+                    system_packages.add(line.replace("package:", "").strip())
+        
+        # Marcar cuáles son del sistema
+        for app in apps:
+            app["is_system_app"] = app["package_name"] in system_packages
+        
+        return {
+            "device": device_ip,
+            "total_apps": len(apps),
+            "apps": apps,
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en /device/installed-apps: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/device/logcat")
+async def get_device_logcat(device_ip: str, lines: int = 50, filter_text: Optional[str] = None):
+    """Obtener últimas líneas del logcat del dispositivo"""
+    try:
+        if device_ip not in devices or not devices[device_ip].connected:
+            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
+        
+        device = devices[device_ip]
+        
+        # Obtener logcat
+        cmd = f"logcat -t {lines}"
+        if filter_text:
+            cmd += f" | grep '{filter_text}'"
+        
+        logcat_result = device.execute_command(cmd)
+        
+        logs = []
+        if logcat_result["status"] == "success":
+            lines_list = logcat_result["output"].strip().split('\n')
+            for line in lines_list:
+                if line.strip():
+                    logs.append(line)
+        
+        return {
+            "device": device_ip,
+            "filter": filter_text,
+            "total_lines": len(logs),
+            "logs": logs,
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en /device/logcat: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/device/volume/current")
+async def get_current_volume(device_ip: str):
+    """Obtener el nivel de volumen actual del dispositivo"""
+    try:
+        if device_ip not in devices or not devices[device_ip].connected:
+            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
+        
+        device = devices[device_ip]
+        
+        # Obtener información de volumen actual
+        volume_result = device.execute_command("dumpsys audio_service | grep -i 'speaker.*volume'")
+        
+        volume_info = {}
+        if volume_result["status"] == "success":
+            volume_info["raw_output"] = volume_result["output"].strip()
+        
+        return {
+            "device": device_ip,
+            "volume_info": volume_info,
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en /device/volume/current: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/device/volume/increase")
+async def increase_volume(device_ip: str, steps: int = 1):
+    """Aumentar el volumen del dispositivo"""
+    try:
+        if device_ip not in devices or not devices[device_ip].connected:
+            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
+        
+        if steps < 1 or steps > 15:
+            raise HTTPException(status_code=400, detail="steps debe estar entre 1 y 15")
+        
+        device = devices[device_ip]
+        
+        # Aumentar volumen usando VOLUME_UP keyevent
+        results = []
+        for _ in range(steps):
+            cmd = "input keyevent KEYCODE_VOLUME_UP"
+            result = device.execute_command(cmd)
+            results.append(result)
+        
+        return {
+            "device": device_ip,
+            "action": "increase_volume",
+            "steps": steps,
+            "status": "success" if all(r["status"] == "success" for r in results) else "partial",
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en /device/volume/increase: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/device/volume/decrease")
+async def decrease_volume(device_ip: str, steps: int = 1):
+    """Disminuir el volumen del dispositivo"""
+    try:
+        if device_ip not in devices or not devices[device_ip].connected:
+            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
+        
+        if steps < 1 or steps > 15:
+            raise HTTPException(status_code=400, detail="steps debe estar entre 1 y 15")
+        
+        device = devices[device_ip]
+        
+        # Disminuir volumen usando VOLUME_DOWN keyevent
+        results = []
+        for _ in range(steps):
+            cmd = "input keyevent KEYCODE_VOLUME_DOWN"
+            result = device.execute_command(cmd)
+            results.append(result)
+        
+        return {
+            "device": device_ip,
+            "action": "decrease_volume",
+            "steps": steps,
+            "status": "success" if all(r["status"] == "success" for r in results) else "partial",
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en /device/volume/decrease: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/device/volume/mute")
+async def mute_device(device_ip: str):
+    """Silenciar el dispositivo"""
+    try:
+        if device_ip not in devices or not devices[device_ip].connected:
+            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
+        
+        device = devices[device_ip]
+        
+        # Silenciar usando MUTE keyevent
+        cmd = "input keyevent KEYCODE_MUTE"
+        result = device.execute_command(cmd)
+        
+        return {
+            "device": device_ip,
+            "action": "mute",
+            "status": result["status"],
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en /device/volume/mute: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/device/volume/set")
+async def set_volume(device_ip: str, level: int):
+    """Establecer el volumen a un nivel específico (0-15)"""
+    try:
+        if device_ip not in devices or not devices[device_ip].connected:
+            raise HTTPException(status_code=400, detail="Dispositivo no conectado")
+        
+        if level < 0 or level > 15:
+            raise HTTPException(status_code=400, detail="level debe estar entre 0 y 15")
+        
+        device = devices[device_ip]
+        
+        # Primero obtener el volumen actual (0 pasos = mute, 15 pasos = máximo)
+        # Usar cmds para establecer volumen directamente si es posible
+        # Alternativamente, usar múltiples pulsaciones de volume up/down
+        
+        # Approach: Bajar volumen al mínimo primero, luego subir al nivel deseado
+        cmd = "input keyevent KEYCODE_VOLUME_MUTE"
+        device.execute_command(cmd)
+        
+        # Ahora subir al nivel deseado
+        results = []
+        for _ in range(level):
+            cmd = "input keyevent KEYCODE_VOLUME_UP"
+            result = device.execute_command(cmd)
+            results.append(result)
+        
+        return {
+            "device": device_ip,
+            "action": "set_volume",
+            "level": level,
+            "status": "success" if all(r["status"] == "success" for r in results) else "partial",
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en /device/volume/set: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

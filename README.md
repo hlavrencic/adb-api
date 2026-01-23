@@ -5,6 +5,11 @@ API Docker para controlar dispositivos Android mediante ADB (Android Debug Bridg
 ## Características
 
 - ✅ Conectar/desconectar dispositivos Android
+- ✅ Obtener información detallada del dispositivo (modelo, versión, RAM, batería)
+- ✅ Monitorear la aplicación actualmente en pantalla
+- ✅ Listar aplicaciones instaladas
+- ✅ Acceder a logs del sistema (logcat)
+- ✅ Controlar el volumen (aumentar, disminuir, silenciar, nivel específico)
 - ✅ Reproducir videos de YouTube
 - ✅ Control de reproducción (pausa, salir)
 - ✅ Descargar capturas de pantalla
@@ -67,43 +72,97 @@ curl -X POST "http://localhost:8000/devices/connect?ip=192.168.0.161&port=5555"
 curl "http://localhost:8000/devices"
 ```
 
-#### 3. Reproducir video de YouTube
+#### 3. Obtener información detallada del dispositivo
+
+```bash
+curl "http://localhost:8000/device/info?device_ip=192.168.0.161"
+```
+
+#### 4. Obtener aplicación actualmente en pantalla
+
+```bash
+curl "http://localhost:8000/device/current-app?device_ip=192.168.0.161"
+```
+
+#### 6. Obtener lista de aplicaciones instaladas
+
+```bash
+curl "http://localhost:8000/device/installed-apps?device_ip=192.168.0.161&limit=20"
+```
+
+#### 7. Obtener logs del sistema
+
+```bash
+curl "http://localhost:8000/device/logcat?device_ip=192.168.0.161&lines=50"
+```
+
+#### 8. Obtener volumen actual
+
+```bash
+curl "http://localhost:8000/device/volume/current?device_ip=192.168.0.161"
+```
+
+#### 9. Aumentar volumen
+
+```bash
+curl -X POST "http://localhost:8000/device/volume/increase?device_ip=192.168.0.161&steps=2"
+```
+
+#### 10. Disminuir volumen
+
+```bash
+curl -X POST "http://localhost:8000/device/volume/decrease?device_ip=192.168.0.161&steps=1"
+```
+
+#### 11. Establecer volumen a un nivel específico
+
+```bash
+curl -X POST "http://localhost:8000/device/volume/set?device_ip=192.168.0.161&level=7"
+```
+
+#### 12. Silenciar dispositivo
+
+```bash
+curl -X POST "http://localhost:8000/device/volume/mute?device_ip=192.168.0.161"
+```
+
+#### 13. Reproducir video de YouTube
 
 ```bash
 curl -X POST "http://localhost:8000/play?device_ip=192.168.0.161&video_url=https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
-#### 4. Pausar video
+#### 14. Pausar video
 
 ```bash
 curl -X POST "http://localhost:8000/stop?device_ip=192.168.0.161"
 ```
 
-#### 5. Salir de la app
+#### 15. Salir de la app
 
 ```bash
 curl -X POST "http://localhost:8000/exit?device_ip=192.168.0.161"
 ```
 
-#### 6. Descargar screenshot
+#### 16. Descargar screenshot
 
 ```bash
 curl "http://localhost:8000/screenshot?device_ip=192.168.0.161" -o screenshot.png
 ```
 
-#### 7. Obtener estado
+#### 17. Obtener estado
 
 ```bash
 curl "http://localhost:8000/status?device_ip=192.168.0.161"
 ```
 
-#### 8. Enviar comando personalizado
+#### 18. Enviar comando personalizado
 
 ```bash
 curl -X POST "http://localhost:8000/command?device_ip=192.168.0.161&command=input%20keyevent%20KEYCODE_HOME"
 ```
 
-#### 9. Desconectar dispositivo
+#### 19. Desconectar dispositivo
 
 ```bash
 curl -X POST "http://localhost:8000/devices/disconnect?device_ip=192.168.0.161"
@@ -114,15 +173,29 @@ curl -X POST "http://localhost:8000/devices/disconnect?device_ip=192.168.0.161"
 | Método | Ruta | Descripción | Parámetros |
 |--------|------|-------------|-----------|
 | GET | `/` | Información de la API | - |
+| **Device Management** |
 | POST | `/devices/connect` | Conectar dispositivo | `ip`, `port` (opcional) |
-| GET | `/devices` | Listar dispositivos | - |
+| GET | `/devices` | Listar dispositivos conectados | - |
+| GET | `/status` | Estado del dispositivo | `device_ip` |
+| POST | `/devices/disconnect` | Desconectar dispositivo | `device_ip` |
+| **Device Information** |
+| GET | `/device/info` | Información detallada del dispositivo | `device_ip` |
+| GET | `/device/current-app` | Aplicación actualmente en pantalla | `device_ip` |
+| GET | `/device/installed-apps` | Lista de aplicaciones instaladas | `device_ip`, `limit` (opcional) |
+| GET | `/device/logcat` | Logs del sistema | `device_ip`, `lines` (opcional), `filter_text` (opcional) |
+| **Volume Control** |
+| GET | `/device/volume/current` | Obtener volumen actual | `device_ip` |
+| POST | `/device/volume/increase` | Aumentar volumen | `device_ip`, `steps` (1-15) |
+| POST | `/device/volume/decrease` | Disminuir volumen | `device_ip`, `steps` (1-15) |
+| POST | `/device/volume/set` | Establecer nivel de volumen | `device_ip`, `level` (0-15) |
+| POST | `/device/volume/mute` | Silenciar dispositivo | `device_ip` |
+| **Video Control** |
 | POST | `/play` | Reproducir video | `device_ip`, `video_url` |
 | POST | `/stop` | Pausar video | `device_ip` |
 | POST | `/exit` | Salir de app | `device_ip` |
+| **Device Operations** |
 | GET | `/screenshot` | Descargar screenshot | `device_ip` |
-| GET | `/status` | Estado del dispositivo | `device_ip` |
 | POST | `/command` | Comando personalizado | `device_ip`, `command` |
-| POST | `/devices/disconnect` | Desconectar | `device_ip` |
 
 ## Respuestas
 

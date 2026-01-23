@@ -109,6 +109,214 @@
       ]
     },
     {
+      "name": "Device Information",
+      "item": [
+        {
+          "name": "Get Device Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/device/info?device_ip={{device_ip}}",
+              "host": ["{{base_url}}"],
+              "path": ["device", "info"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                }
+              ]
+            },
+            "description": "Obtiene información detallada del dispositivo (modelo, versión, RAM, etc.)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current App",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/device/current-app?device_ip={{device_ip}}",
+              "host": ["{{base_url}}"],
+              "path": ["device", "current-app"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                }
+              ]
+            },
+            "description": "Obtiene la aplicación actualmente en pantalla"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Installed Apps",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/device/installed-apps?device_ip={{device_ip}}&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["device", "installed-apps"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Obtiene lista de aplicaciones instaladas en el dispositivo"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Logcat",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/device/logcat?device_ip={{device_ip}}&lines=50",
+              "host": ["{{base_url}}"],
+              "path": ["device", "logcat"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                },
+                {
+                  "key": "lines",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Obtiene las últimas líneas del logcat del dispositivo"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Volume Control",
+      "item": [
+        {
+          "name": "Get Current Volume",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/device/volume/current?device_ip={{device_ip}}",
+              "host": ["{{base_url}}"],
+              "path": ["device", "volume", "current"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                }
+              ]
+            },
+            "description": "Obtiene el nivel de volumen actual del dispositivo"
+          },
+          "response": []
+        },
+        {
+          "name": "Increase Volume",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/device/volume/increase?device_ip={{device_ip}}&steps=1",
+              "host": ["{{base_url}}"],
+              "path": ["device", "volume", "increase"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                },
+                {
+                  "key": "steps",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Aumenta el volumen del dispositivo (1-15 pasos)"
+          },
+          "response": []
+        },
+        {
+          "name": "Decrease Volume",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/device/volume/decrease?device_ip={{device_ip}}&steps=1",
+              "host": ["{{base_url}}"],
+              "path": ["device", "volume", "decrease"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                },
+                {
+                  "key": "steps",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Disminuye el volumen del dispositivo (1-15 pasos)"
+          },
+          "response": []
+        },
+        {
+          "name": "Set Volume Level",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/device/volume/set?device_ip={{device_ip}}&level=7",
+              "host": ["{{base_url}}"],
+              "path": ["device", "volume", "set"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                },
+                {
+                  "key": "level",
+                  "value": "7"
+                }
+              ]
+            },
+            "description": "Establece el volumen a un nivel específico (0-15)"
+          },
+          "response": []
+        },
+        {
+          "name": "Mute Device",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/device/volume/mute?device_ip={{device_ip}}",
+              "host": ["{{base_url}}"],
+              "path": ["device", "volume", "mute"],
+              "query": [
+                {
+                  "key": "device_ip",
+                  "value": "{{device_ip}}"
+                }
+              ]
+            },
+            "description": "Silencia el dispositivo"
+          },
+          "response": []
+        },
+    {
       "name": "Video Control",
       "item": [
         {
