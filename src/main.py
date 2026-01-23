@@ -330,7 +330,7 @@ async def play_video(device_ip: str, video_url: str):
         raise
     except Exception as e:
         logger.error(f"Error en /play: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
 @app.post("/stop")
 @ensure_device_connection
@@ -350,7 +350,7 @@ async def stop_video(device_ip: str):
         raise
     except Exception as e:
         logger.error(f"Error en /stop: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
 @app.post("/exit")
 @ensure_device_connection
@@ -370,7 +370,7 @@ async def exit_app(device_ip: str):
         raise
     except Exception as e:
         logger.error(f"Error en /exit: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
 @app.get("/screenshot")
 @ensure_device_connection
@@ -402,7 +402,7 @@ async def get_screenshot(device_ip: str):
         raise
     except Exception as e:
         logger.error(f"Error al descargar screenshot: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error al descargar screenshot: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Error al ejecutar comando ADB: {str(e)}")
 
 @app.get("/status")
 @ensure_device_connection
@@ -425,9 +425,11 @@ async def get_status(device_ip: str):
             "status": "connected" if device.connected else "disconnected",
             "connected": device.connected
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error en /status: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
 @app.post("/devices/disconnect")
 async def disconnect_device(device_ip: str):
@@ -447,7 +449,7 @@ async def disconnect_device(device_ip: str):
         raise
     except Exception as e:
         logger.error(f"Error en /devices/disconnect: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al desconectar: {str(e)}")
 
 @app.post("/command")
 @ensure_device_connection
@@ -469,7 +471,7 @@ async def send_custom_command(device_ip: str, command: str):
         raise
     except Exception as e:
         logger.error(f"Error en /command: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
 @app.get("/device/info")
 @ensure_device_connection
@@ -530,7 +532,7 @@ async def get_device_info(device_ip: str):
         raise
     except Exception as e:
         logger.error(f"Error en /device/info: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
 @app.get("/device/current-app")
 @ensure_device_connection
@@ -577,7 +579,7 @@ async def get_current_app(device_ip: str):
         raise
     except Exception as e:
         logger.error(f"Error en /device/current-app: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al obtener aplicación actual: {str(e)}")
 
 @app.get("/device/installed-apps")
 @ensure_device_connection
@@ -629,7 +631,7 @@ async def get_installed_apps(device_ip: str, limit: int = 20):
         raise
     except Exception as e:
         logger.error(f"Error en /device/installed-apps: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al obtener lista de aplicaciones: {str(e)}")
 
 @app.get("/device/logcat")
 @ensure_device_connection
@@ -668,7 +670,7 @@ async def get_device_logcat(device_ip: str, lines: int = 50, filter_text: Option
         raise
     except Exception as e:
         logger.error(f"Error en /device/logcat: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al obtener información del dispositivo: {str(e)}")
 
 @app.get("/device/volume/current")
 @ensure_device_connection
@@ -693,7 +695,7 @@ async def get_current_volume(device_ip: str):
         raise
     except Exception as e:
         logger.error(f"Error en /device/volume/current: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al obtener volumen: {str(e)}")
 
 @app.post("/device/volume/increase")
 @ensure_device_connection
@@ -725,7 +727,7 @@ async def increase_volume(device_ip: str, steps: int = 1):
         raise
     except Exception as e:
         logger.error(f"Error en /device/volume/increase: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al aumentar volumen: {str(e)}")
 
 @app.post("/device/volume/decrease")
 @ensure_device_connection
@@ -757,7 +759,7 @@ async def decrease_volume(device_ip: str, steps: int = 1):
         raise
     except Exception as e:
         logger.error(f"Error en /device/volume/decrease: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al disminuir volumen: {str(e)}")
 
 @app.post("/device/volume/mute")
 @ensure_device_connection
@@ -780,7 +782,7 @@ async def mute_device(device_ip: str):
         raise
     except Exception as e:
         logger.error(f"Error en /device/volume/mute: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al silenciar dispositivo: {str(e)}")
 
 @app.post("/device/volume/set")
 @ensure_device_connection
@@ -820,7 +822,7 @@ async def set_volume(device_ip: str, level: int):
         raise
     except Exception as e:
         logger.error(f"Error en /device/volume/set: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=503, detail=f"Error al establecer volumen: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
