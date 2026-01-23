@@ -4,14 +4,15 @@
 # usando shell_commands para ejecutar comandos en dispositivos Android de forma remota.
 #
 # ⚙️  CONFIGURACIÓN REQUERIDA:
-# Reemplaza la siguiente URL con la dirección donde está corriendo tu API
-# - Local (mismo host): http://localhost:8000
-# - Remoto: http://192.168.0.100:8000 (ajusta IP y puerto según tu red)
-# 
-{% set adb_api_url = "http://localhost:8000" %}
+# La URL de la API se define en secrets.yaml (más seguro)
+# O reemplaza "adb_api_url_secret" directamente en el campo {% raw %}"{{ adb_api_url }}"{% endraw %} en los rest_command
 #
-# ALTERNATIVA: Usa !secret para mayor seguridad (guardado en secrets.yaml)
-# {% set adb_api_url = !secret adb_api_url %}
+# En secrets.yaml, añade:
+#   adb_api_url: "http://localhost:8000"
+#
+# Si prefieres hardcoding, reemplaza directamente en las URLs de rest_command:
+# - Local (mismo host): http://localhost:8000
+# - Remoto: http://192.168.0.25100:8000 (ajusta IP y puerto según tu red)
 #
 # INSTALACIÓN:
 # 1. Copia el contenido relevant a tu archivo configuration.yaml de Home Assistant
@@ -34,129 +35,84 @@ homeassistant:
   time_zone: America/Argentina/Buenos_Aires
   customize: !include customize.yaml
 
-# ============================================================================
-# REST COMMANDS - Forma nativa de Home Assistant para HTTP requests
-# ============================================================================
-# rest_command es la alternativa moderna a shell_command
-# Ventajas: NO necesita curl, es más limpio, seguro e integrado nativamente
 
 rest_command:
   # ========== Device Management ==========
   adb_connect_device:
-    url: "{{ adb_api_url }}/devices/connect"
+    url: "http://192.168.0.251:9123/devices/connect?ip={{ device_ip }}&port=5555"
     method: POST
-    params:
-      ip: "{{ device_ip }}"
-      port: 5555
   
   adb_disconnect_device:
-    url: "{{ adb_api_url }}/devices/disconnect"
+    url: "http://192.168.0.251:9123/devices/disconnect?device_ip={{ device_ip }}"
     method: POST
-    params:
-      device_ip: "{{ device_ip }}"
   
   adb_list_devices:
-    url: "{{ adb_api_url }}/devices"
+    url: "http://192.168.0.251:9123/devices"
     method: GET
   
   adb_check_status:
-    url: "{{ adb_api_url }}/status"
+    url: "http://192.168.0.251:9123/status?device_ip={{ device_ip }}"
     method: GET
-    params:
-      device_ip: "{{ device_ip }}"
   
   adb_health:
-    url: "{{ adb_api_url }}/"
+    url: "http://192.168.0.251:9123/"
     method: GET
   
   # ========== Device Information ==========
   adb_device_info:
-    url: "{{ adb_api_url }}/device/info"
+    url: "http://192.168.0.251:9123/device/info?device_ip={{ device_ip }}"
     method: GET
-    params:
-      device_ip: "{{ device_ip }}"
   
   adb_current_app:
-    url: "{{ adb_api_url }}/device/current-app"
+    url: "http://192.168.0.251:9123/device/current-app?device_ip={{ device_ip }}"
     method: GET
-    params:
-      device_ip: "{{ device_ip }}"
   
   adb_installed_apps:
-    url: "{{ adb_api_url }}/device/installed-apps"
+    url: "http://192.168.0.251:9123/device/installed-apps?device_ip={{ device_ip }}&limit=30"
     method: GET
-    params:
-      device_ip: "{{ device_ip }}"
-      limit: 30
   
   adb_logcat:
-    url: "{{ adb_api_url }}/device/logcat"
+    url: "http://192.168.0.251:9123/device/logcat?device_ip={{ device_ip }}&lines=50"
     method: GET
-    params:
-      device_ip: "{{ device_ip }}"
-      lines: 50
   
   # ========== Volume Control ==========
   adb_volume_current:
-    url: "{{ adb_api_url }}/device/volume/current"
+    url: "http://192.168.0.251:9123/device/volume/current?device_ip={{ device_ip }}"
     method: GET
-    params:
-      device_ip: "{{ device_ip }}"
   
   adb_volume_up:
-    url: "{{ adb_api_url }}/device/volume/increase"
+    url: "http://192.168.0.251:9123/device/volume/increase?device_ip={{ device_ip }}&steps={{ steps | default(1) }}"
     method: POST
-    params:
-      device_ip: "{{ device_ip }}"
-      steps: "{{ steps | default(1) }}"
   
   adb_volume_down:
-    url: "{{ adb_api_url }}/device/volume/decrease"
+    url: "http://192.168.0.251:9123/device/volume/decrease?device_ip={{ device_ip }}&steps={{ steps | default(1) }}"
     method: POST
-    params:
-      device_ip: "{{ device_ip }}"
-      steps: "{{ steps | default(1) }}"
   
   adb_volume_mute:
-    url: "{{ adb_api_url }}/device/volume/mute"
+    url: "http://192.168.0.251:9123/device/volume/mute?device_ip={{ device_ip }}"
     method: POST
-    params:
-      device_ip: "{{ device_ip }}"
   
   adb_volume_set:
-    url: "{{ adb_api_url }}/device/volume/set"
+    url: "http://192.168.0.251:9123/device/volume/set?device_ip={{ device_ip }}&level={{ level }}"
     method: POST
-    params:
-      device_ip: "{{ device_ip }}"
-      level: "{{ level }}"
   
   # ========== Video Control ==========
   adb_play_video:
-    url: "{{ adb_api_url }}/play"
+    url: "http://192.168.0.251:9123/play?device_ip={{ device_ip }}&video_url={{ video_url }}"
     method: POST
-    params:
-      device_ip: "{{ device_ip }}"
-      video_url: "{{ video_url }}"
   
   adb_pause_video:
-    url: "{{ adb_api_url }}/stop"
+    url: "http://192.168.0.251:9123/stop?device_ip={{ device_ip }}"
     method: POST
-    params:
-      device_ip: "{{ device_ip }}"
   
   adb_exit_app:
-    url: "{{ adb_api_url }}/exit"
+    url: "http://192.168.0.251:9123/exit?device_ip={{ device_ip }}"
     method: POST
-    params:
-      device_ip: "{{ device_ip }}"
   
   # ========== Device Operations ==========
   adb_custom_command:
-    url: "{{ adb_api_url }}/command"
+    url: "http://192.168.0.251:9123/command?device_ip={{ device_ip }}&command={{ command }}"
     method: POST
-    params:
-      device_ip: "{{ device_ip }}"
-      command: "{{ command }}"
 
 # ============================================================================
 # SCRIPT HELPERS - Unificados por funcionalidad con parámetro 'action'
@@ -172,21 +128,26 @@ script:
     description: "Gestión de dispositivos ADB (conectar, desconectar, listar, estado)"
     fields:
       action:
-        description: "Acción a realizar: 'connect', 'disconnect', 'list', 'status', 'health'"
-        example: "status"
+        description: "Acción a realizar"
+        selector:
+          select:
+            options:
+              - connect
+              - disconnect
+              - list
+              - status
+              - health
+        default: "connect"
       device_ip:
         description: "IP del dispositivo (requerido para: disconnect, status)"
         example: "192.168.0.161"
-      ip:
-        description: "IP para conectar (requerido para: connect)"
-        example: "192.168.0.161"
+        default: "192.168.0.161"
       port:
         description: "Puerto (opcional, default: 5555 para connect)"
         example: 5555
     sequence:
       - condition: template
         value_template: "{{ action is defined and action | length > 0 }}"
-        continue_on_error: true
       - choose:
           - conditions:
               - condition: template
@@ -196,10 +157,11 @@ script:
                 value_template: "{{ ip is defined and ip | length > 0 }}"
               - service: rest_command.adb_connect_device
                 data:
-                  device_ip: "{{ ip }}"
+                  device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Conectando a {{ ip }}"
+                  message: "Conectando a {{ device_ip }}: {{ result.status }}"
           
           - conditions:
               - condition: template
@@ -210,18 +172,20 @@ script:
               - service: rest_command.adb_disconnect_device
                 data:
                   device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Desconectando {{ device_ip }}"
+                  message: "Desconectando {{ device_ip }}: {{ result.status }}"
           
           - conditions:
               - condition: template
                 value_template: "{{ action == 'list' }}"
             sequence:
               - service: rest_command.adb_list_devices
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Dispositivos listados"
+                  message: "Dispositivos listados: {{ result.json | length }} dispositivos"
           
           - conditions:
               - condition: template
@@ -232,18 +196,20 @@ script:
               - service: rest_command.adb_check_status
                 data:
                   device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Estado verificado para {{ device_ip }}"
+                  message: "Estado: {{ result.json.status | default('desconocido') }}"
           
           - conditions:
               - condition: template
                 value_template: "{{ action == 'health' }}"
             sequence:
               - service: rest_command.adb_health
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Salud de la API verificada"
+                  message: "API Status: {{ result.json.status | default('OK') }}"
         default:
           - service: notify.notify
             data:
@@ -257,11 +223,19 @@ script:
     description: "Información del dispositivo (info, app actual, apps instaladas, logs)"
     fields:
       action:
-        description: "Acción: 'info', 'current_app', 'installed_apps', 'logcat'"
-        example: "current_app"
+        description: "Acción a realizar"
+        selector:
+          select:
+            options:
+              - info
+              - current_app
+              - installed_apps
+              - logcat
+        default: "info"
       device_ip:
         description: "IP del dispositivo Android"
         example: "192.168.0.161"
+        default: "192.168.0.161"
       limit:
         description: "Límite de apps (para installed_apps, default: 30)"
         example: 30
@@ -271,10 +245,8 @@ script:
     sequence:
       - condition: template
         value_template: "{{ device_ip is defined and device_ip | length > 0 }}"
-        continue_on_error: true
       - condition: template
         value_template: "{{ action is defined and action | length > 0 }}"
-        continue_on_error: true
       - choose:
           - conditions:
               - condition: template
@@ -283,9 +255,10 @@ script:
               - service: rest_command.adb_device_info
                 data:
                   device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Información del dispositivo {{ device_ip }} obtenida"
+                  message: "Info: {{ result.json | to_json }}"
           
           - conditions:
               - condition: template
@@ -294,9 +267,10 @@ script:
               - service: rest_command.adb_current_app
                 data:
                   device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "App actual en {{ device_ip }} obtenida"
+                  message: "App actual: {{ result.json.app_name | default('N/A') }}"
           
           - conditions:
               - condition: template
@@ -305,9 +279,10 @@ script:
               - service: rest_command.adb_installed_apps
                 data:
                   device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Apps instaladas en {{ device_ip }} obtenidas"
+                  message: "Instaladas: {{ result.json | length }} apps"
           
           - conditions:
               - condition: template
@@ -316,9 +291,10 @@ script:
               - service: rest_command.adb_logcat
                 data:
                   device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Logcat de {{ device_ip }} obtenida"
+                  message: "Logcat obtenido: {{ result.json | length }} líneas"
         default:
           - service: notify.notify
             data:
@@ -332,21 +308,28 @@ script:
     description: "Control de volumen (get, up, down, set, mute)"
     fields:
       action:
-        description: "Acción: 'get', 'up', 'down', 'set', 'mute'"
-        example: "up"
+        description: "Acción a realizar"
+        selector:
+          select:
+            options:
+              - get
+              - up
+              - down
+              - set
+              - mute
+        default: "get"
       device_ip:
         description: "IP del dispositivo Android"
         example: "192.168.0.161"
+        default: "192.168.0.161"
       steps:
         description: "Pasos para up/down (default: 1) o nivel para set (0-15)"
         example: 1
     sequence:
       - condition: template
         value_template: "{{ device_ip is defined and device_ip | length > 0 }}"
-        continue_on_error: true
       - condition: template
         value_template: "{{ action is defined and action | length > 0 }}"
-        continue_on_error: true
       - choose:
           - conditions:
               - condition: template
@@ -355,9 +338,10 @@ script:
               - service: rest_command.adb_volume_current
                 data:
                   device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Volumen actual obtenido para {{ device_ip }}"
+                  message: "Volumen: {{ result.json.level | default('N/A') }}/15"
           
           - conditions:
               - condition: template
@@ -367,9 +351,10 @@ script:
                 data:
                   device_ip: "{{ device_ip }}"
                   steps: "{{ steps | default(1) }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Volumen aumentado {{ steps | default(1) }} pasos en {{ device_ip }}"
+                  message: "Volumen +{{ steps | default(1) }} → {{ result.json.level | default('N/A') }}"
           
           - conditions:
               - condition: template
@@ -379,9 +364,10 @@ script:
                 data:
                   device_ip: "{{ device_ip }}"
                   steps: "{{ steps | default(1) }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Volumen reducido {{ steps | default(1) }} pasos en {{ device_ip }}"
+                  message: "Volumen -{{ steps | default(1) }} → {{ result.json.level | default('N/A') }}"
           
           - conditions:
               - condition: template
@@ -393,9 +379,10 @@ script:
                 data:
                   device_ip: "{{ device_ip }}"
                   level: "{{ steps }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Volumen establecido a {{ steps }} en {{ device_ip }}"
+                  message: "Volumen fijado a {{ steps }}/15: {{ result.json.status | default('OK') }}"
           
           - conditions:
               - condition: template
@@ -404,9 +391,10 @@ script:
               - service: rest_command.adb_volume_mute
                 data:
                   device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Dispositivo {{ device_ip }} silenciado"
+                  message: "Silenciado: {{ result.json.status | default('OK') }}"
         default:
           - service: notify.notify
             data:
@@ -420,21 +408,26 @@ script:
     description: "Control de medios (play, pause, exit)"
     fields:
       action:
-        description: "Acción: 'play', 'pause', 'exit'"
-        example: "play"
+        description: "Acción a realizar"
+        selector:
+          select:
+            options:
+              - play
+              - pause
+              - exit
+        default: "play"
       device_ip:
         description: "IP del dispositivo Android"
         example: "192.168.0.161"
+        default: "192.168.0.161"
       video_url:
         description: "URL de video (requerido para: play)"
         example: "https://www.youtube.com/watch?v=VIDEO_ID"
     sequence:
       - condition: template
         value_template: "{{ device_ip is defined and device_ip | length > 0 }}"
-        continue_on_error: true
       - condition: template
         value_template: "{{ action is defined and action | length > 0 }}"
-        continue_on_error: true
       - choose:
           - conditions:
               - condition: template
@@ -446,11 +439,12 @@ script:
                 data:
                   device_ip: "{{ device_ip }}"
                   video_url: "{{ video_url }}"
+                response_variable: result
               - delay:
                   seconds: 2
               - service: notify.notify
                 data:
-                  message: "Reproduciendo en {{ device_ip }}"
+                  message: "Reproduciéndose: {{ result.json.status | default('OK') }}"
           
           - conditions:
               - condition: template
@@ -459,9 +453,10 @@ script:
               - service: rest_command.adb_pause_video
                 data:
                   device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Pausa en {{ device_ip }}"
+                  message: "Pausado: {{ result.json.status | default('OK') }}"
           
           - conditions:
               - condition: template
@@ -470,9 +465,10 @@ script:
               - service: rest_command.adb_exit_app
                 data:
                   device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "App cerrada en {{ device_ip }}"
+                  message: "Cerrada: {{ result.json.status | default('OK') }}"
         default:
           - service: notify.notify
             data:
@@ -486,21 +482,25 @@ script:
     description: "Operaciones del sistema (screenshot, comando)"
     fields:
       action:
-        description: "Acción: 'screenshot', 'command'"
-        example: "screenshot"
+        description: "Acción a realizar"
+        selector:
+          select:
+            options:
+              - screenshot
+              - command
+        default: "screenshot"
       device_ip:
         description: "IP del dispositivo Android"
         example: "192.168.0.161"
+        default: "192.168.0.161"
       command:
         description: "Comando ADB a ejecutar (requerido para: command)"
         example: "pm list packages"
     sequence:
       - condition: template
         value_template: "{{ device_ip is defined and device_ip | length > 0 }}"
-        continue_on_error: true
       - condition: template
         value_template: "{{ action is defined and action | length > 0 }}"
-        continue_on_error: true
       - choose:
           - conditions:
               - condition: template
@@ -509,9 +509,10 @@ script:
               - service: rest_command.adb_check_status
                 data:
                   device_ip: "{{ device_ip }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Screenshot de {{ device_ip }} capturada"
+                  message: "Screenshot: {{ result.json.status | default('OK') }}"
           
           - conditions:
               - condition: template
@@ -523,27 +524,39 @@ script:
                 data:
                   device_ip: "{{ device_ip }}"
                   command: "{{ command }}"
+                response_variable: result
               - service: notify.notify
                 data:
-                  message: "Comando ejecutado en {{ device_ip }}"
+                  message: "Comando: {{ result.json | to_json }}"
         default:
           - service: notify.notify
             data:
               message: "ERROR adb_system: Acción '{{ action }}' desconocida. Use: screenshot o command"
 
 # ============================================================================
-# REST SENSOR - Para monitoreo en tiempo real
+# REST SENSOR - Para monitoreo en tiempo real (OPCIONAL)
 # ============================================================================
+# Si quieres monitorear el estado de la API, puedes usar un REST sensor
+# Descomenta y adapta según tu versión de Home Assistant
 
-rest:
-  - resource: "{{ adb_api_url }}/"
-    name: adb_api_health
-    scan_interval: 30
-    json_attributes:
-      - status
-      - version
-      - connected_devices
-    value_template: "{{ value_json.status }}"
+# Opción 1: Para Home Assistant 2023.12 y anteriores
+# rest:
+#   - resource: "http://192.168.0.251:9123/"
+#     method: GET
+#     scan_interval: 30
+#     sensor:
+#       - name: "ADB API Health"
+#         unique_id: adb_api_health
+#         value_template: "{{ value_json.status }}"
+
+# Opción 2: Para Home Assistant 2024.1 y posteriores
+# rest:
+#   - scan_interval: 30
+#     resource: "http://192.168.0.251:9123/"
+#     sensor:
+#       - name: "ADB API Health"
+#         unique_id: adb_api_health
+#         value_template: "{{ value_json.status }}"
 
 # ============================================================================
 # TEMPLATE SENSORS - Para información procesada
@@ -671,7 +684,7 @@ template:
 # 1. ACCESO A LA API:
 #    - Local: Si Home Assistant está en el mismo host que la API, usa http://localhost:8000
 #    - Remoto: Si está en otro host, usa http://IP_API:8000
-#    - Ejemplo: http://192.168.0.100:8000
+#    - Ejemplo: http://192.168.0.25100:8000
 #
 # 2. SEGURIDAD:
 #    - NO guardes IPs o URLs sensibles en configuration.yaml visible
