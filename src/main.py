@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, HTTPException, File, UploadFile, Query
 from fastapi.responses import FileResponse, JSONResponse
 from adb_shell.adb_device import AdbDeviceTcp
 import os
@@ -14,7 +14,37 @@ from functools import wraps
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="ADB Control API", version="1.2.0")
+app = FastAPI(
+    title="ADB Control API",
+    version="1.2.0",
+    description="""
+    API para controlar dispositivos Android mediante ADB (Android Debug Bridge).
+    
+    ## Características Principales:
+    
+    - 🔗 **Conexión Automática**: Los endpoints conectan automáticamente al dispositivo si es necesario
+    - ✅ **Validación de Parámetros**: Validación completa de parámetros con códigos HTTP diferenciados
+    - 📱 **Control Completo del Dispositivo**: Información, volumen, reproducción, capturas, logs
+    - 🔐 **Seguridad ADB**: Generación automática de claves RSA
+    - 📊 **Documentación Swagger**: Documentación interactiva en /docs
+    
+    ## Códigos HTTP:
+    
+    - **200 OK**: Operación exitosa
+    - **400 Bad Request**: Error de validación de parámetros
+    - **503 Service Unavailable**: Error durante ejecución de comando ADB
+    
+    ## Documentación:
+    
+    - [Guía Rápida](./REFERENCIA_CODIGOS_HTTP.md)
+    - [Validaciones](./VALIDACIONES.md)
+    - [Ejemplos de Uso](./EJEMPLOS_USO.md)
+    - [Códigos HTTP](./CODIGOS_HTTP.md)
+    """,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
 
 # Diccionario para almacenar conexiones
 devices = {}
@@ -246,9 +276,35 @@ async def root():
             "error": str(e)
         }, 503
 
-@app.post("/devices/connect")
-async def connect_device(ip: str, port: int = 5555):
-    """Conectar a un dispositivo Android"""
+@app.post(
+    "/devices/connect",
+    tags=["Dispositivos"],
+    summary="Conectar a un dispositivo Android",
+    responses={
+        200: {"description": "Dispositivo conectado exitosamente"},
+        400: {"description": "Parámetro inválido (IP o puerto fuera de rango)"}
+    }
+)
+async def connect_device(
+    ip: str = Query(..., description="Dirección IP o hostname del dispositivo (ej: 192.168.1.100)"),
+    port: int = Query(5555, description="Puerto ADB del dispositivo (1-65535)", ge=1, le=65535)
+):
+    """
+    Conecta a un dispositivo Android a través de ADB.
+    
+    **Parámetros:**
+    - **ip**: Dirección IP o hostname del dispositivo (requerido)
+    - **port**: Puerto ADB del dispositivo (default: 5555, rango: 1-65535)
+    
+    **Retorna:**
+    - **status**: "success", "warning" o "error"
+    - **message**: Mensaje descriptivo del resultado
+    
+    **Ejemplo de uso:**
+    ```bash
+    curl -X POST "http://localhost:9123/devices/connect?ip=192.168.1.100&port=5555"
+    ```
+    """
     try:
         # Validar parámetros
         validate_device_ip(ip)
@@ -273,9 +329,26 @@ async def connect_device(ip: str, port: int = 5555):
         logger.error(f"Error en /devices/connect: {str(e)}")
         return {"status": "error", "message": str(e)}
 
-@app.get("/devices")
+@app.get(
+    "/devices",
+    tags=["Dispositivos"],
+    summary="Listar dispositivos conectados",
+    responses={200: {"description": "Lista de dispositivos conectados"}}
+)
 async def list_devices():
-    """Listar dispositivos conectados"""
+    """
+    Obtiene la lista de todos los dispositivos registrados y su estado de conexión.
+    
+    **Retorna:**
+    - **devices**: Lista de dispositivos con su estado
+    - **count**: Cantidad total de dispositivos
+    
+    **Estados posibles:**
+    - connected: Dispositivo conectado y disponible
+    - disconnected: Dispositivo registrado pero desconectado
+    - reconnected: Dispositivo que fue desconectado y se reconectó
+    - error: Error al verificar el estado del dispositivo
+    """
     device_list = []
     for ip, device in devices.items():
         try:
@@ -304,10 +377,37 @@ async def list_devices():
     
     return {"devices": device_list, "count": len(device_list)}
 
-@app.post("/play")
+@app.post(
+    "/play",
+    tags=["Reproducción"],
+    summary="Reproducir video de YouTube",
+    responses={
+        200: {"description": "Video iniciado exitosamente"},
+        400: {"description": "Parámetros inválidos"},
+        503: {"description": "Error al conectar con el dispositivo"}
+    }
+)
 @ensure_device_connection
-async def play_video(device_ip: str, video_url: str):
-    """Reproducir video de YouTube"""
+async def play_video(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo"),
+    video_url: str = Query(..., description="URL del video de YouTube (youtube.com o youtu.be)")
+):
+    """
+    Reproduce un video de YouTube en el dispositivo Android.
+    
+    **Parámetros:**
+    - **device_ip**: Dirección IP del dispositivo (requerido)
+    - **video_url**: URL de YouTube (requerido, debe contener youtube.com o youtu.be)
+    
+    **Validaciones:**
+    - device_ip debe ser una IP o hostname válido
+    - video_url no puede estar vacío y debe ser de YouTube
+    
+    **Ejemplo:**
+    ```bash
+    curl -X POST "http://localhost:9123/play?device_ip=192.168.1.100&video_url=https://youtu.be/dQw4w9WgXcQ"
+    ```
+    """
     try:
         # Validar parámetros
         validate_required_params(device_ip=device_ip, video_url=video_url)
@@ -332,10 +432,21 @@ async def play_video(device_ip: str, video_url: str):
         logger.error(f"Error en /play: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
-@app.post("/stop")
+@app.post(
+    "/stop",
+    tags=["Reproducción"],
+    summary="Pausar reproducción",
+    responses={
+        200: {"description": "Pausa aplicada exitosamente"},
+        503: {"description": "Error al ejecutar comando"}
+    }
+)
 @ensure_device_connection
-async def stop_video(device_ip: str):
-    """Pausar video (espacio)"""
+async def stop_video(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo")
+):
+    """
+    Pausa la reproducción actual (envía tecla espacio).
     try:
         device = devices[device_ip]
         cmd = "input keyevent KEYCODE_SPACE"
@@ -352,10 +463,21 @@ async def stop_video(device_ip: str):
         logger.error(f"Error en /stop: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
-@app.post("/exit")
+@app.post(
+    "/exit",
+    tags=["Reproducción"],
+    summary="Salir de la aplicación actual",
+    responses={
+        200: {"description": "Salida aplicada exitosamente"},
+        503: {"description": "Error al ejecutar comando"}
+    }
+)
 @ensure_device_connection
-async def exit_app(device_ip: str):
-    """Salir de la aplicación (Back)"""
+async def exit_app(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo")
+):
+    """
+    Cierra la aplicación actual (simula presionar tecla Back).
     try:
         device = devices[device_ip]
         cmd = "input keyevent KEYCODE_BACK"
@@ -372,10 +494,21 @@ async def exit_app(device_ip: str):
         logger.error(f"Error en /exit: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
-@app.get("/screenshot")
+@app.get(
+    "/screenshot",
+    tags=["Información"],
+    summary="Descargar captura de pantalla",
+    responses={
+        200: {"description": "Captura de pantalla descargada", "content": {"image/png": {}}},
+        503: {"description": "Error al ejecutar comando ADB"}
+    }
+)
 @ensure_device_connection
-async def get_screenshot(device_ip: str):
-    """Descargar captura de pantalla"""
+async def get_screenshot(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo")
+):
+    """
+    Obtiene una captura de pantalla del dispositivo.
     try:
         device = devices[device_ip]
         
@@ -404,10 +537,21 @@ async def get_screenshot(device_ip: str):
         logger.error(f"Error al descargar screenshot: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al ejecutar comando ADB: {str(e)}")
 
-@app.get("/status")
+@app.get(
+    "/status",
+    tags=["Información"],
+    summary="Obtener estado del dispositivo",
+    responses={
+        200: {"description": "Estado del dispositivo"},
+        503: {"description": "Error al ejecutar comando"}
+    }
+)
 @ensure_device_connection
-async def get_status(device_ip: str):
-    """Obtener estado del dispositivo"""
+async def get_status(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo")
+):
+    """
+    Verifica el estado actual de conexión del dispositivo.
     try:
         device = devices[device_ip]
         
@@ -431,9 +575,21 @@ async def get_status(device_ip: str):
         logger.error(f"Error en /status: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
-@app.post("/devices/disconnect")
-async def disconnect_device(device_ip: str):
-    """Desconectar de un dispositivo"""
+@app.post(
+    "/devices/disconnect",
+    tags=["Dispositivos"],
+    summary="Desconectar dispositivo",
+    responses={
+        200: {"description": "Dispositivo desconectado"},
+        400: {"description": "Dispositivo no encontrado"},
+        503: {"description": "Error al desconectar"}
+    }
+)
+async def disconnect_device(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo")
+):
+    """
+    Desconecta un dispositivo registrado y lo elimina del registro.
     try:
         # Validar parámetros
         validate_device_ip(device_ip)
@@ -451,10 +607,32 @@ async def disconnect_device(device_ip: str):
         logger.error(f"Error en /devices/disconnect: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al desconectar: {str(e)}")
 
-@app.post("/command")
+@app.post(
+    "/command",
+    tags=["Comandos"],
+    summary="Enviar comando ADB personalizado",
+    responses={
+        200: {"description": "Comando ejecutado"},
+        400: {"description": "Comando vacío"},
+        503: {"description": "Error al ejecutar comando"}
+    }
+)
 @ensure_device_connection
-async def send_custom_command(device_ip: str, command: str):
-    """Enviar comando personalizado ADB shell"""
+async def send_custom_command(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo"),
+    command: str = Query(..., description="Comando ADB shell a ejecutar")
+):
+    """
+    Ejecuta un comando ADB shell personalizado en el dispositivo.
+    
+    **Parámetros:**
+    - **device_ip**: IP del dispositivo (requerido)
+    - **command**: Comando a ejecutar (requerido)
+    
+    **Ejemplos:**
+    - `ps` - Listar procesos
+    - `ls /sdcard` - Listar archivos
+    - `getprop ro.build.version.release` - Obtener versión de Android
     try:
         # Validar parámetros
         validate_required_params(device_ip=device_ip, command=command)
@@ -473,10 +651,31 @@ async def send_custom_command(device_ip: str, command: str):
         logger.error(f"Error en /command: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
-@app.get("/device/info")
+@app.get(
+    "/device/info",
+    tags=["Información del Dispositivo"],
+    summary="Obtener información detallada del dispositivo",
+    responses={
+        200: {"description": "Información del dispositivo"},
+        503: {"description": "Error al obtener información"}
+    }
+)
 @ensure_device_connection
-async def get_device_info(device_ip: str):
-    """Obtener información detallada del dispositivo (modelo, versión, RAM, etc.)"""
+async def get_device_info(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo")
+):
+    """
+    Obtiene información detallada del dispositivo Android.
+    
+    **Información retornada:**
+    - **model**: Modelo del dispositivo
+    - **manufacturer**: Fabricante
+    - **android_version**: Versión de Android
+    - **api_level**: Nivel de API
+    - **total_ram**: Memoria RAM total
+    - **storage_info**: Información de almacenamiento
+    - **serial_number**: Número de serie único
+    - **battery_info**: Información de la batería
     try:
         device = devices[device_ip]
         
@@ -534,10 +733,21 @@ async def get_device_info(device_ip: str):
         logger.error(f"Error en /device/info: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al ejecutar comando: {str(e)}")
 
-@app.get("/device/current-app")
+@app.get(
+    "/device/current-app",
+    tags=["Información del Dispositivo"],
+    summary="Obtener aplicación actualmente en pantalla",
+    responses={
+        200: {"description": "Información de la app actual"},
+        503: {"description": "Error al obtener información"}
+    }
+)
 @ensure_device_connection
-async def get_current_app(device_ip: str):
-    """Obtener la aplicación actualmente en pantalla"""
+async def get_current_app(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo")
+):
+    """
+    Obtiene la aplicación Android actualmente en pantalla.
     try:
         device = devices[device_ip]
         
@@ -581,10 +791,31 @@ async def get_current_app(device_ip: str):
         logger.error(f"Error en /device/current-app: {str(e)}")
         raise HTTPException(status_code=503, detail=f"Error al obtener aplicación actual: {str(e)}")
 
-@app.get("/device/installed-apps")
+@app.get(
+    "/device/installed-apps",
+    tags=["Información del Dispositivo"],
+    summary="Listar aplicaciones instaladas",
+    responses={
+        200: {"description": "Lista de aplicaciones instaladas"},
+        400: {"description": "Parámetro limit fuera de rango"},
+        503: {"description": "Error al obtener lista"}
+    }
+)
 @ensure_device_connection
-async def get_installed_apps(device_ip: str, limit: int = 20):
-    """Obtener lista de aplicaciones instaladas en el dispositivo"""
+async def get_installed_apps(
+    device_ip: str = Query(..., description="IP o hostname del dispositivo"),
+    limit: int = Query(20, description="Cantidad máxima de aplicaciones a retornar (1-500)", ge=1, le=500)
+):
+    """
+    Obtiene la lista de aplicaciones instaladas en el dispositivo.
+    
+    **Parámetros:**
+    - **device_ip**: IP del dispositivo (requerido)
+    - **limit**: Cantidad máxima de apps a retornar (default: 20, max: 500)
+    
+    **Información retornada:**
+    - **package_name**: Nombre del paquete (ej: com.google.android.youtube)
+    - **is_system_app**: Indica si es aplicación del sistema
     try:
         # Validar parámetros
         validate_required_params(device_ip=device_ip)
