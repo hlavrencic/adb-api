@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from adb_shell.adb_device import AdbDeviceTcp
 import os
 import json
+import re
 from typing import Optional
 from datetime import datetime
 import logging
@@ -18,6 +19,55 @@ app = FastAPI(title="ADB Control API", version="1.2.0")
 # Diccionario para almacenar conexiones
 devices = {}
 
+def validate_ip_address(ip: str) -> bool:
+    """Validar que el formato de IP sea válido"""
+    if not ip or not isinstance(ip, str):
+        return False
+    # Patrón para IPv4
+    ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+    if re.match(ipv4_pattern, ip):
+        parts = ip.split('.')
+        return all(0 <= int(part) <= 255 for part in parts)
+    # Permitir también hostnames/dominios
+    hostname_pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
+    return bool(re.match(hostname_pattern, ip))
+
+def validate_required_params(**params):
+    """
+    Validar parámetros requeridos
+    Lanza HTTPException si algún parámetro es inválido
+    """
+    for param_name, param_value in params.items():
+        if param_value is None or (isinstance(param_value, str) and param_value.strip() == ""):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"El parámetro '{param_name}' es requerido y no puede estar vacío"
+            )
+    return True
+
+def validate_device_ip(device_ip: str) -> bool:
+    """Validar que device_ip sea un parámetro válido"""
+    if not device_ip or not isinstance(device_ip, str):
+        raise HTTPException(
+            status_code=400,
+            detail="device_ip es requerido y debe ser una cadena válida"
+        )
+    
+    device_ip = device_ip.strip()
+    if not device_ip:
+        raise HTTPException(
+            status_code=400,
+            detail="device_ip no puede estar vacío"
+        )
+    
+    if not validate_ip_address(device_ip):
+        raise HTTPException(
+            status_code=400,
+            detail=f"device_ip '{device_ip}' no es una dirección IP o hostname válido"
+        )
+    
+    return True
+
 def ensure_device_connection(func):
     """
     Decorador que asegura que el dispositivo esté conectado.
@@ -30,8 +80,8 @@ def ensure_device_connection(func):
         device_ip = kwargs.get('device_ip') or (args[0] if args else None)
         port = kwargs.get('port', 5555)
         
-        if not device_ip:
-            raise HTTPException(status_code=400, detail="device_ip es requerido")
+        # Validar device_ip
+        validate_device_ip(device_ip)
         
         # Verificar si el dispositivo existe en el diccionario
         if device_ip not in devices:
@@ -200,6 +250,11 @@ async def root():
 async def connect_device(ip: str, port: int = 5555):
     """Conectar a un dispositivo Android"""
     try:
+        # Validar parámetros
+        validate_device_ip(ip)
+        if not isinstance(port, int) or port < 1 or port > 65535:
+            raise HTTPException(status_code=400, detail="port debe ser un número entre 1 y 65535")
+        
         if ip in devices:
             if devices[ip].connected:
                 return {"status": "warning", "message": "Dispositivo ya conectado"}
@@ -212,6 +267,8 @@ async def connect_device(ip: str, port: int = 5555):
             devices[ip] = device
         
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error en /devices/connect: {str(e)}")
         return {"status": "error", "message": str(e)}
@@ -252,9 +309,12 @@ async def list_devices():
 async def play_video(device_ip: str, video_url: str):
     """Reproducir video de YouTube"""
     try:
+        # Validar parámetros
+        validate_required_params(device_ip=device_ip, video_url=video_url)
+        
         # Validar URL
         if "youtube.com" not in video_url and "youtu.be" not in video_url:
-            raise HTTPException(status_code=400, detail="URL debe ser de YouTube")
+            raise HTTPException(status_code=400, detail="video_url debe ser una URL válida de YouTube")
         
         device = devices[device_ip]
         cmd = f'am start -a android.intent.action.VIEW -d "{video_url}"'
@@ -373,8 +433,11 @@ async def get_status(device_ip: str):
 async def disconnect_device(device_ip: str):
     """Desconectar de un dispositivo"""
     try:
+        # Validar parámetros
+        validate_device_ip(device_ip)
+        
         if device_ip not in devices:
-            raise HTTPException(status_code=400, detail="Dispositivo no encontrado")
+            raise HTTPException(status_code=400, detail=f"Dispositivo '{device_ip}' no encontrado")
         
         result = devices[device_ip].disconnect()
         del devices[device_ip]
@@ -391,6 +454,9 @@ async def disconnect_device(device_ip: str):
 async def send_custom_command(device_ip: str, command: str):
     """Enviar comando personalizado ADB shell"""
     try:
+        # Validar parámetros
+        validate_required_params(device_ip=device_ip, command=command)
+        
         device = devices[device_ip]
         result = device.execute_command(command)
         
@@ -518,6 +584,11 @@ async def get_current_app(device_ip: str):
 async def get_installed_apps(device_ip: str, limit: int = 20):
     """Obtener lista de aplicaciones instaladas en el dispositivo"""
     try:
+        # Validar parámetros
+        validate_required_params(device_ip=device_ip)
+        if not isinstance(limit, int) or limit < 1 or limit > 500:
+            raise HTTPException(status_code=400, detail="limit debe ser un número entre 1 y 500")
+        
         device = devices[device_ip]
         
         # Obtener lista de paquetes
@@ -565,6 +636,11 @@ async def get_installed_apps(device_ip: str, limit: int = 20):
 async def get_device_logcat(device_ip: str, lines: int = 50, filter_text: Optional[str] = None):
     """Obtener últimas líneas del logcat del dispositivo"""
     try:
+        # Validar parámetros
+        validate_required_params(device_ip=device_ip)
+        if not isinstance(lines, int) or lines < 1 or lines > 1000:
+            raise HTTPException(status_code=400, detail="lines debe ser un número entre 1 y 1000")
+        
         device = devices[device_ip]
         
         # Obtener logcat
@@ -624,8 +700,10 @@ async def get_current_volume(device_ip: str):
 async def increase_volume(device_ip: str, steps: int = 1):
     """Aumentar el volumen del dispositivo"""
     try:
-        if steps < 1 or steps > 15:
-            raise HTTPException(status_code=400, detail="steps debe estar entre 1 y 15")
+        # Validar parámetros
+        validate_required_params(device_ip=device_ip)
+        if not isinstance(steps, int) or steps < 1 or steps > 15:
+            raise HTTPException(status_code=400, detail="steps debe ser un número entero entre 1 y 15")
         
         device = devices[device_ip]
         
@@ -654,8 +732,10 @@ async def increase_volume(device_ip: str, steps: int = 1):
 async def decrease_volume(device_ip: str, steps: int = 1):
     """Disminuir el volumen del dispositivo"""
     try:
-        if steps < 1 or steps > 15:
-            raise HTTPException(status_code=400, detail="steps debe estar entre 1 y 15")
+        # Validar parámetros
+        validate_required_params(device_ip=device_ip)
+        if not isinstance(steps, int) or steps < 1 or steps > 15:
+            raise HTTPException(status_code=400, detail="steps debe ser un número entero entre 1 y 15")
         
         device = devices[device_ip]
         
@@ -707,8 +787,10 @@ async def mute_device(device_ip: str):
 async def set_volume(device_ip: str, level: int):
     """Establecer el volumen a un nivel específico (0-15)"""
     try:
-        if level < 0 or level > 15:
-            raise HTTPException(status_code=400, detail="level debe estar entre 0 y 15")
+        # Validar parámetros
+        validate_required_params(device_ip=device_ip)
+        if not isinstance(level, int) or level < 0 or level > 15:
+            raise HTTPException(status_code=400, detail="level debe ser un número entero entre 0 y 15")
         
         device = devices[device_ip]
         
