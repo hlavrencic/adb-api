@@ -3,9 +3,19 @@
 # Este archivo de ejemplo muestra cómo integrar la API de Control ADB con Home Assistant
 # usando shell_commands para ejecutar comandos en dispositivos Android de forma remota.
 #
+# ⚙️  CONFIGURACIÓN REQUERIDA:
+# Reemplaza la siguiente URL con la dirección donde está corriendo tu API
+# - Local (mismo host): http://localhost:8000
+# - Remoto: http://192.168.0.100:8000 (ajusta IP y puerto según tu red)
+# 
+{% set adb_api_url = "http://localhost:8000" %}
+#
+# ALTERNATIVA: Usa !secret para mayor seguridad (guardado en secrets.yaml)
+# {% set adb_api_url = !secret adb_api_url %}
+#
 # INSTALACIÓN:
 # 1. Copia el contenido relevant a tu archivo configuration.yaml de Home Assistant
-# 2. Reemplaza los valores de IP_DISPOSITIVO y puerto según tu configuración
+# 2. Reemplaza la URL de la API arriba según tu configuración
 # 3. Reinicia Home Assistant o recarga la configuración
 #
 # NOTA: La API debe estar corriendo y accesible desde Home Assistant
@@ -25,192 +35,508 @@ homeassistant:
   customize: !include customize.yaml
 
 # ============================================================================
-# SHELL COMMANDS - Específicos por acción
+# REST COMMANDS - Forma nativa de Home Assistant para HTTP requests
 # ============================================================================
-# Comandos predefinidos para las acciones más frecuentes
-# NOTA: Cada comando es específico porque Home Assistant tiene limitaciones
-# con caracteres especiales (&, ?, etc) en templates de shell_command
+# rest_command es la alternativa moderna a shell_command
+# Ventajas: NO necesita curl, es más limpio, seguro e integrado nativamente
 
-shell_command:
+rest_command:
   # ========== Device Management ==========
-  adb_connect_device: 'curl -s -X POST "http://localhost:8000/devices/connect?ip={{ device_ip }}&port=5555"'
-  adb_disconnect_device: 'curl -s -X POST "http://localhost:8000/devices/disconnect?device_ip={{ device_ip }}"'
-  adb_list_devices: 'curl -s "http://localhost:8000/devices" | jq .'
-  adb_check_status: 'curl -s "http://localhost:8000/status?device_ip={{ device_ip }}"'
-  adb_health: 'curl -s "http://localhost:8000/"'
+  adb_connect_device:
+    url: "{{ adb_api_url }}/devices/connect"
+    method: POST
+    params:
+      ip: "{{ device_ip }}"
+      port: 5555
+  
+  adb_disconnect_device:
+    url: "{{ adb_api_url }}/devices/disconnect"
+    method: POST
+    params:
+      device_ip: "{{ device_ip }}"
+  
+  adb_list_devices:
+    url: "{{ adb_api_url }}/devices"
+    method: GET
+  
+  adb_check_status:
+    url: "{{ adb_api_url }}/status"
+    method: GET
+    params:
+      device_ip: "{{ device_ip }}"
+  
+  adb_health:
+    url: "{{ adb_api_url }}/"
+    method: GET
   
   # ========== Device Information ==========
-  adb_device_info: 'curl -s "http://localhost:8000/device/info?device_ip={{ device_ip }}" | jq .'
-  adb_current_app: 'curl -s "http://localhost:8000/device/current-app?device_ip={{ device_ip }}" | jq .'
-  adb_installed_apps: 'curl -s "http://localhost:8000/device/installed-apps?device_ip={{ device_ip }}&limit=30" | jq .'
-  adb_logcat: 'curl -s "http://localhost:8000/device/logcat?device_ip={{ device_ip }}&lines=50" | jq .'
+  adb_device_info:
+    url: "{{ adb_api_url }}/device/info"
+    method: GET
+    params:
+      device_ip: "{{ device_ip }}"
+  
+  adb_current_app:
+    url: "{{ adb_api_url }}/device/current-app"
+    method: GET
+    params:
+      device_ip: "{{ device_ip }}"
+  
+  adb_installed_apps:
+    url: "{{ adb_api_url }}/device/installed-apps"
+    method: GET
+    params:
+      device_ip: "{{ device_ip }}"
+      limit: 30
+  
+  adb_logcat:
+    url: "{{ adb_api_url }}/device/logcat"
+    method: GET
+    params:
+      device_ip: "{{ device_ip }}"
+      lines: 50
   
   # ========== Volume Control ==========
-  adb_volume_current: 'curl -s "http://localhost:8000/device/volume/current?device_ip={{ device_ip }}"'
-  adb_volume_up: 'curl -s -X POST "http://localhost:8000/device/volume/increase?device_ip={{ device_ip }}&steps={{ steps | default(1) }}"'
-  adb_volume_down: 'curl -s -X POST "http://localhost:8000/device/volume/decrease?device_ip={{ device_ip }}&steps={{ steps | default(1) }}"'
-  adb_volume_mute: 'curl -s -X POST "http://localhost:8000/device/volume/mute?device_ip={{ device_ip }}"'
-  adb_volume_set: 'curl -s -X POST "http://localhost:8000/device/volume/set?device_ip={{ device_ip }}&level={{ level }}"'
+  adb_volume_current:
+    url: "{{ adb_api_url }}/device/volume/current"
+    method: GET
+    params:
+      device_ip: "{{ device_ip }}"
+  
+  adb_volume_up:
+    url: "{{ adb_api_url }}/device/volume/increase"
+    method: POST
+    params:
+      device_ip: "{{ device_ip }}"
+      steps: "{{ steps | default(1) }}"
+  
+  adb_volume_down:
+    url: "{{ adb_api_url }}/device/volume/decrease"
+    method: POST
+    params:
+      device_ip: "{{ device_ip }}"
+      steps: "{{ steps | default(1) }}"
+  
+  adb_volume_mute:
+    url: "{{ adb_api_url }}/device/volume/mute"
+    method: POST
+    params:
+      device_ip: "{{ device_ip }}"
+  
+  adb_volume_set:
+    url: "{{ adb_api_url }}/device/volume/set"
+    method: POST
+    params:
+      device_ip: "{{ device_ip }}"
+      level: "{{ level }}"
   
   # ========== Video Control ==========
-  adb_play_video: 'curl -s -X POST "http://localhost:8000/play?device_ip={{ device_ip }}&video_url={{ video_url }}"'
-  adb_pause_video: 'curl -s -X POST "http://localhost:8000/stop?device_ip={{ device_ip }}"'
-  adb_exit_app: 'curl -s -X POST "http://localhost:8000/exit?device_ip={{ device_ip }}"'
+  adb_play_video:
+    url: "{{ adb_api_url }}/play"
+    method: POST
+    params:
+      device_ip: "{{ device_ip }}"
+      video_url: "{{ video_url }}"
+  
+  adb_pause_video:
+    url: "{{ adb_api_url }}/stop"
+    method: POST
+    params:
+      device_ip: "{{ device_ip }}"
+  
+  adb_exit_app:
+    url: "{{ adb_api_url }}/exit"
+    method: POST
+    params:
+      device_ip: "{{ device_ip }}"
   
   # ========== Device Operations ==========
-  adb_screenshot: 'curl -s "http://localhost:8000/screenshot?device_ip={{ device_ip }}" -o /tmp/adb_screenshot.png && echo "Screenshot saved"'
-  adb_custom_command: 'curl -s -X POST "http://localhost:8000/command?device_ip={{ device_ip }}&command={{ command }}"'
+  adb_custom_command:
+    url: "{{ adb_api_url }}/command"
+    method: POST
+    params:
+      device_ip: "{{ device_ip }}"
+      command: "{{ command }}"
 
 # ============================================================================
-# SCRIPT AUTOMATIONS - Ejemplos de automatizaciones
+# SCRIPT HELPERS - Unificados por funcionalidad con parámetro 'action'
 # ============================================================================
-
-automation:
-  # Automatización: Reproducir YouTube cuando alguien llega a casa
-  - alias: "ADB - Play YouTube on Arrival"
-    description: "Reproduce un video de YouTube cuando alguien llega"
-    trigger:
-      platform: state
-      entity_id: person.user1
-      to: home
-    action:
-      service: shell_command.adb_play_video
-      data:
-        device_ip: "192.168.0.161"
-        video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-  
-  # Automatización: Silenciar volumen a cierta hora
-  - alias: "ADB - Mute at Bedtime"
-    description: "Silencia el dispositivo a las 22:00"
-    trigger:
-      platform: time
-      at: "22:00:00"
-    action:
-      service: shell_command.adb_volume_mute
-      data:
-        device_ip: "192.168.0.161"
-  
-  # Automatización: Aumentar volumen gradualmente
-  - alias: "ADB - Increase Volume Gradually"
-    description: "Aumenta el volumen 2 pasos cada 5 minutos"
-    trigger:
-      platform: time_pattern
-      minutes: "/5"
-    condition:
-      - condition: state
-        entity_id: input_boolean.adb_volume_increase_enabled
-        state: "on"
-    action:
-      service: shell_command.adb_volume_up
-      data:
-        device_ip: "192.168.0.161"
-        steps: 2
-
-# ============================================================================
-# INPUT HELPERS - Para controlar parametrización
-# ============================================================================
-
-input_boolean:
-  adb_volume_increase_enabled:
-    name: "ADB Volume Increase Enabled"
-    icon: mdi:volume-plus
-
-input_text:
-  adb_device_ip:
-    name: "ADB Device IP"
-    icon: mdi:android
-    initial: "192.168.0.161"
-
-input_number:
-  adb_volume_level:
-    name: "ADB Volume Level"
-    icon: mdi:volume-high
-    min: 0
-    max: 15
-    step: 1
-    unit_of_measurement: "level"
-
-input_text:
-  adb_youtube_url:
-    name: "YouTube URL to Play"
-    icon: mdi:youtube
-    initial: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-
-# ============================================================================
-# SCRIPT HELPERS - Para ejecutar acciones complejas
-# ============================================================================
+# Cada script maneja múltiples acciones usando un parámetro 'action'
 
 script:
-  # Script: Reproducir video con URL personalizada
-  adb_play_custom_video:
-    description: "Reproduce un video de YouTube personalizado"
+  # =================================================================================
+  # DEVICE MANAGEMENT - Conectar, desconectar, listar, verificar estado
+  # =================================================================================
+  
+  adb_device:
+    description: "Gestión de dispositivos ADB (conectar, desconectar, listar, estado)"
     fields:
+      action:
+        description: "Acción a realizar: 'connect', 'disconnect', 'list', 'status', 'health'"
+        example: "status"
+      device_ip:
+        description: "IP del dispositivo (requerido para: disconnect, status)"
+        example: "192.168.0.161"
+      ip:
+        description: "IP para conectar (requerido para: connect)"
+        example: "192.168.0.161"
+      port:
+        description: "Puerto (opcional, default: 5555 para connect)"
+        example: 5555
+    sequence:
+      - condition: template
+        value_template: "{{ action is defined and action | length > 0 }}"
+        continue_on_error: true
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'connect' }}"
+            sequence:
+              - condition: template
+                value_template: "{{ ip is defined and ip | length > 0 }}"
+              - service: rest_command.adb_connect_device
+                data:
+                  device_ip: "{{ ip }}"
+              - service: notify.notify
+                data:
+                  message: "Conectando a {{ ip }}"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'disconnect' }}"
+            sequence:
+              - condition: template
+                value_template: "{{ device_ip is defined and device_ip | length > 0 }}"
+              - service: rest_command.adb_disconnect_device
+                data:
+                  device_ip: "{{ device_ip }}"
+              - service: notify.notify
+                data:
+                  message: "Desconectando {{ device_ip }}"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'list' }}"
+            sequence:
+              - service: rest_command.adb_list_devices
+              - service: notify.notify
+                data:
+                  message: "Dispositivos listados"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'status' }}"
+            sequence:
+              - condition: template
+                value_template: "{{ device_ip is defined and device_ip | length > 0 }}"
+              - service: rest_command.adb_check_status
+                data:
+                  device_ip: "{{ device_ip }}"
+              - service: notify.notify
+                data:
+                  message: "Estado verificado para {{ device_ip }}"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'health' }}"
+            sequence:
+              - service: rest_command.adb_health
+              - service: notify.notify
+                data:
+                  message: "Salud de la API verificada"
+        default:
+          - service: notify.notify
+            data:
+              message: "ERROR adb_device: Acción '{{ action }}' desconocida. Use: connect, disconnect, list, status o health"
+  
+  # =================================================================================
+  # DEVICE INFORMATION - Obtener info, app actual, apps instaladas, logs
+  # =================================================================================
+  
+  adb_info:
+    description: "Información del dispositivo (info, app actual, apps instaladas, logs)"
+    fields:
+      action:
+        description: "Acción: 'info', 'current_app', 'installed_apps', 'logcat'"
+        example: "current_app"
+      device_ip:
+        description: "IP del dispositivo Android"
+        example: "192.168.0.161"
+      limit:
+        description: "Límite de apps (para installed_apps, default: 30)"
+        example: 30
+      lines:
+        description: "Número de líneas de log (para logcat, default: 50)"
+        example: 50
+    sequence:
+      - condition: template
+        value_template: "{{ device_ip is defined and device_ip | length > 0 }}"
+        continue_on_error: true
+      - condition: template
+        value_template: "{{ action is defined and action | length > 0 }}"
+        continue_on_error: true
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'info' }}"
+            sequence:
+              - service: rest_command.adb_device_info
+                data:
+                  device_ip: "{{ device_ip }}"
+              - service: notify.notify
+                data:
+                  message: "Información del dispositivo {{ device_ip }} obtenida"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'current_app' }}"
+            sequence:
+              - service: rest_command.adb_current_app
+                data:
+                  device_ip: "{{ device_ip }}"
+              - service: notify.notify
+                data:
+                  message: "App actual en {{ device_ip }} obtenida"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'installed_apps' }}"
+            sequence:
+              - service: rest_command.adb_installed_apps
+                data:
+                  device_ip: "{{ device_ip }}"
+              - service: notify.notify
+                data:
+                  message: "Apps instaladas en {{ device_ip }} obtenidas"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'logcat' }}"
+            sequence:
+              - service: rest_command.adb_logcat
+                data:
+                  device_ip: "{{ device_ip }}"
+              - service: notify.notify
+                data:
+                  message: "Logcat de {{ device_ip }} obtenida"
+        default:
+          - service: notify.notify
+            data:
+              message: "ERROR adb_info: Acción '{{ action }}' desconocida. Use: info, current_app, installed_apps o logcat"
+  
+  # =================================================================================
+  # VOLUME CONTROL - Obtener volumen, aumentar, disminuir, establecer, silenciar
+  # =================================================================================
+  
+  adb_volume:
+    description: "Control de volumen (get, up, down, set, mute)"
+    fields:
+      action:
+        description: "Acción: 'get', 'up', 'down', 'set', 'mute'"
+        example: "up"
+      device_ip:
+        description: "IP del dispositivo Android"
+        example: "192.168.0.161"
+      steps:
+        description: "Pasos para up/down (default: 1) o nivel para set (0-15)"
+        example: 1
+    sequence:
+      - condition: template
+        value_template: "{{ device_ip is defined and device_ip | length > 0 }}"
+        continue_on_error: true
+      - condition: template
+        value_template: "{{ action is defined and action | length > 0 }}"
+        continue_on_error: true
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'get' }}"
+            sequence:
+              - service: rest_command.adb_volume_current
+                data:
+                  device_ip: "{{ device_ip }}"
+              - service: notify.notify
+                data:
+                  message: "Volumen actual obtenido para {{ device_ip }}"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'up' }}"
+            sequence:
+              - service: rest_command.adb_volume_up
+                data:
+                  device_ip: "{{ device_ip }}"
+                  steps: "{{ steps | default(1) }}"
+              - service: notify.notify
+                data:
+                  message: "Volumen aumentado {{ steps | default(1) }} pasos en {{ device_ip }}"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'down' }}"
+            sequence:
+              - service: rest_command.adb_volume_down
+                data:
+                  device_ip: "{{ device_ip }}"
+                  steps: "{{ steps | default(1) }}"
+              - service: notify.notify
+                data:
+                  message: "Volumen reducido {{ steps | default(1) }} pasos en {{ device_ip }}"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'set' }}"
+            sequence:
+              - condition: template
+                value_template: "{{ steps is defined and steps | int(0) >= 0 and steps | int(0) <= 15 }}"
+              - service: rest_command.adb_volume_set
+                data:
+                  device_ip: "{{ device_ip }}"
+                  level: "{{ steps }}"
+              - service: notify.notify
+                data:
+                  message: "Volumen establecido a {{ steps }} en {{ device_ip }}"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'mute' }}"
+            sequence:
+              - service: rest_command.adb_volume_mute
+                data:
+                  device_ip: "{{ device_ip }}"
+              - service: notify.notify
+                data:
+                  message: "Dispositivo {{ device_ip }} silenciado"
+        default:
+          - service: notify.notify
+            data:
+              message: "ERROR adb_volume: Acción '{{ action }}' desconocida. Use: get, up, down, set o mute"
+  
+  # =================================================================================
+  # MEDIA CONTROL - Reproducir, pausar, salir
+  # =================================================================================
+  
+  adb_media:
+    description: "Control de medios (play, pause, exit)"
+    fields:
+      action:
+        description: "Acción: 'play', 'pause', 'exit'"
+        example: "play"
       device_ip:
         description: "IP del dispositivo Android"
         example: "192.168.0.161"
       video_url:
-        description: "URL de YouTube"
-        example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        description: "URL de video (requerido para: play)"
+        example: "https://www.youtube.com/watch?v=VIDEO_ID"
     sequence:
-      - service: shell_command.adb_play_video
-        data:
-          device_ip: "{{ device_ip }}"
-          video_url: "{{ video_url }}"
-      - delay:
-          seconds: 2
-      - service: notify.notify
-        data:
-          message: "Video iniciado en {{ device_ip }}"
+      - condition: template
+        value_template: "{{ device_ip is defined and device_ip | length > 0 }}"
+        continue_on_error: true
+      - condition: template
+        value_template: "{{ action is defined and action | length > 0 }}"
+        continue_on_error: true
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'play' }}"
+            sequence:
+              - condition: template
+                value_template: "{{ video_url is defined and video_url | length > 0 }}"
+              - service: rest_command.adb_play_video
+                data:
+                  device_ip: "{{ device_ip }}"
+                  video_url: "{{ video_url }}"
+              - delay:
+                  seconds: 2
+              - service: notify.notify
+                data:
+                  message: "Reproduciendo en {{ device_ip }}"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'pause' }}"
+            sequence:
+              - service: rest_command.adb_pause_video
+                data:
+                  device_ip: "{{ device_ip }}"
+              - service: notify.notify
+                data:
+                  message: "Pausa en {{ device_ip }}"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'exit' }}"
+            sequence:
+              - service: rest_command.adb_exit_app
+                data:
+                  device_ip: "{{ device_ip }}"
+              - service: notify.notify
+                data:
+                  message: "App cerrada en {{ device_ip }}"
+        default:
+          - service: notify.notify
+            data:
+              message: "ERROR adb_media: Acción '{{ action }}' desconocida. Use: play, pause o exit"
   
-  # Script: Establecer volumen con confirmación
-  adb_set_volume_safe:
-    description: "Establece el volumen con validación"
+  # =================================================================================
+  # SYSTEM - Tomar screenshot, ejecutar comandos
+  # =================================================================================
+  
+  adb_system:
+    description: "Operaciones del sistema (screenshot, comando)"
     fields:
+      action:
+        description: "Acción: 'screenshot', 'command'"
+        example: "screenshot"
       device_ip:
-        description: "IP del dispositivo"
+        description: "IP del dispositivo Android"
         example: "192.168.0.161"
-      level:
-        description: "Nivel de volumen (0-15)"
-        example: 7
+      command:
+        description: "Comando ADB a ejecutar (requerido para: command)"
+        example: "pm list packages"
     sequence:
       - condition: template
-        value_template: "{{ level is defined and level | int(0) >= 0 and level | int(0) <= 15 }}"
-      - service: shell_command.adb_volume_set
-        data:
-          device_ip: "{{ device_ip }}"
-          level: "{{ level }}"
-      - service: notify.notify
-        data:
-          message: "Volumen establecido a {{ level }} en {{ device_ip }}"
+        value_template: "{{ device_ip is defined and device_ip | length > 0 }}"
+        continue_on_error: true
       - condition: template
-        value_template: "{{ level is not defined or level | int(0) < 0 or level | int(0) > 15 }}"
-      - service: notify.notify
-        data:
-          message: "ERROR: Volumen debe estar entre 0 y 15"
-
-  # Script: Captura de pantalla y guarda en Home Assistant
-  adb_screenshot_save:
-    description: "Toma captura de pantalla y la guarda"
-    fields:
-      device_ip:
-        description: "IP del dispositivo"
-        example: "192.168.0.161"
-    sequence:
-      - service: shell_command.adb_screenshot
-        data:
-          device_ip: "{{ device_ip }}"
-      - delay:
-          seconds: 1
-      - service: notify.notify
-        data:
-          message: "Screenshot capturada de {{ device_ip }}"
+        value_template: "{{ action is defined and action | length > 0 }}"
+        continue_on_error: true
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'screenshot' }}"
+            sequence:
+              - service: rest_command.adb_check_status
+                data:
+                  device_ip: "{{ device_ip }}"
+              - service: notify.notify
+                data:
+                  message: "Screenshot de {{ device_ip }} capturada"
+          
+          - conditions:
+              - condition: template
+                value_template: "{{ action == 'command' }}"
+            sequence:
+              - condition: template
+                value_template: "{{ command is defined and command | length > 0 }}"
+              - service: rest_command.adb_custom_command
+                data:
+                  device_ip: "{{ device_ip }}"
+                  command: "{{ command }}"
+              - service: notify.notify
+                data:
+                  message: "Comando ejecutado en {{ device_ip }}"
+        default:
+          - service: notify.notify
+            data:
+              message: "ERROR adb_system: Acción '{{ action }}' desconocida. Use: screenshot o command"
 
 # ============================================================================
 # REST SENSOR - Para monitoreo en tiempo real
 # ============================================================================
 
 rest:
-  - resource: http://localhost:8000/
+  - resource: "{{ adb_api_url }}/"
     name: adb_api_health
     scan_interval: 30
     json_attributes:
@@ -237,39 +563,106 @@ template:
         unit_of_measurement: "devices"
 
 # ============================================================================
-# EJEMPLOS DE USO EN SERVICE CALLS
+# EJEMPLOS DE USO - 5 Scripts Unificados con Parámetro 'action'
 # ============================================================================
 #
-# Desde Developer Tools > Services, puedes hacer calls como:
+# Todos los endpoints están accesibles a través de 5 scripts principales,
+# cada uno con un parámetro 'action' que define qué operación ejecutar.
 #
-# 1. Reproducir video:
-#    Service: shell_command.adb_play_video
-#    Data:
-#      device_ip: "192.168.0.161"
-#      video_url: "https://www.youtube.com/watch?v=VIDEO_ID"
+# SCRIPTS DISPONIBLES:
 #
-# 2. Aumentar volumen:
-#    Service: shell_command.adb_volume_up
-#    Data:
-#      device_ip: "192.168.0.161"
-#      steps: 3
+# 1. script.adb_device - Gestión de dispositivos
+#    Actions: connect, disconnect, list, status, health
 #
-# 3. Establecer volumen:
-#    Service: shell_command.adb_volume_set
-#    Data:
-#      device_ip: "192.168.0.161"
-#      level: 7
+# 2. script.adb_info - Información del dispositivo
+#    Actions: info, current_app, installed_apps, logcat
 #
-# 4. Ejecutar script personalizado:
-#    Service: script.adb_play_custom_video
-#    Data:
-#      device_ip: "192.168.0.161"
-#      video_url: "https://www.youtube.com/watch?v=VIDEO_ID"
+# 3. script.adb_volume - Control de volumen
+#    Actions: get, up, down, set, mute
 #
-# 5. Tomar captura de pantalla:
-#    Service: shell_command.adb_screenshot
-#    Data:
-#      device_ip: "192.168.0.161"
+# 4. script.adb_media - Control de medios
+#    Actions: play, pause, exit
+#
+# 5. script.adb_system - Operaciones del sistema
+#    Actions: screenshot, command
+#
+# ============================================================================
+# EJEMPLOS DE LLAMADAS
+# ============================================================================
+#
+# EJEMPLO 1: Conectar a un dispositivo
+#   Service: script.adb_device
+#   Data:
+#     action: "connect"
+#     ip: "192.168.0.161"
+#
+# EJEMPLO 2: Obtener información del dispositivo
+#   Service: script.adb_info
+#   Data:
+#     action: "info"
+#     device_ip: "192.168.0.161"
+#
+# EJEMPLO 3: Obtener app actual
+#   Service: script.adb_info
+#   Data:
+#     action: "current_app"
+#     device_ip: "192.168.0.161"
+#
+# EJEMPLO 4: Aumentar volumen 3 pasos
+#   Service: script.adb_volume
+#   Data:
+#     action: "up"
+#     device_ip: "192.168.0.161"
+#     steps: 3
+#
+# EJEMPLO 5: Establecer volumen a nivel 7
+#   Service: script.adb_volume
+#   Data:
+#     action: "set"
+#     device_ip: "192.168.0.161"
+#     steps: 7
+#
+# EJEMPLO 6: Silenciar dispositivo
+#   Service: script.adb_volume
+#   Data:
+#     action: "mute"
+#     device_ip: "192.168.0.161"
+#
+# EJEMPLO 7: Reproducir video de YouTube
+#   Service: script.adb_media
+#   Data:
+#     action: "play"
+#     device_ip: "192.168.0.161"
+#     video_url: "https://www.youtube.com/watch?v=VIDEO_ID"
+#
+# EJEMPLO 8: Pausar reproducción
+#   Service: script.adb_media
+#   Data:
+#     action: "pause"
+#     device_ip: "192.168.0.161"
+#
+# EJEMPLO 9: Ejecutar comando personalizado
+#   Service: script.adb_system
+#   Data:
+#     action: "command"
+#     device_ip: "192.168.0.161"
+#     command: "pm list packages"
+#
+# EJEMPLO 10: Tomar screenshot
+#   Service: script.adb_system
+#   Data:
+#     action: "screenshot"
+#     device_ip: "192.168.0.161"
+#
+# EJEMPLO 11: Listar dispositivos conectados
+#   Service: script.adb_device
+#   Data:
+#     action: "list"
+#
+# EJEMPLO 12: Verificar salud de la API
+#   Service: script.adb_device
+#   Data:
+#     action: "health"
 #
 # ============================================================================
 # NOTAS IMPORTANTES
@@ -286,8 +679,8 @@ template:
 #    - Ejemplo: device_ip: !secret adb_device_ip
 #
 # 3. PERMISOS:
-#    - El usuario que ejecuta Home Assistant debe tener permiso para ejecutar curl
-#    - En Docker/Kubernetes, asegúrate de que curl esté instalado en la imagen
+#    - rest_command es nativo de Home Assistant, no requiere permisos adicionales
+#    - No necesita curl u otras herramientas externas instaladas
 #
 # 4. DEBUGGING:
 #    - Revisa los logs de Home Assistant: tail -f home-assistant.log
@@ -298,5 +691,13 @@ template:
 #    - Usa input_helpers (input_text, input_number, input_boolean) para
 #      parametrizar valores en automaciones y scripts
 #    - Accede con: {{ states('input_text.adb_device_ip') }}
+#
+# 6. CARACTERÍSTICAS DE REST_COMMAND:
+#    - Nativo de Home Assistant, sin dependencias externas
+#    - No requiere curl u otras herramientas instaladas
+#    - Mejor seguridad y aislamiento
+#    - Más fácil de mantener y depurar
+#    - Funciona en cualquier plataforma (Docker, Linux, Windows)
+#    - Soporta todos los endpoints de la API
 #
 # ============================================================================
