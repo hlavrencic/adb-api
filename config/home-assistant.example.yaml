@@ -114,6 +114,12 @@ rest_command:
     url: "http://192.168.0.251:9123/command?device_ip={{ device_ip }}&command={{ command }}"
     method: POST
 
+  # ========== Screenshots ==========
+  adb_get_screenshot:
+    url: "http://192.168.0.251:9123/screenshot?device_ip={{ device_ip }}"
+    method: GET
+    timeout: 30
+
 # ============================================================================
 # SCRIPT HELPERS - Unificados por funcionalidad con parámetro 'action'
 # ============================================================================
@@ -506,13 +512,15 @@ script:
               - condition: template
                 value_template: "{{ action == 'screenshot' }}"
             sequence:
-              - service: rest_command.adb_check_status
+              - service: rest_command.adb_get_screenshot
                 data:
                   device_ip: "{{ device_ip }}"
-                response_variable: result
-              - service: notify.notify
+                response_variable: screenshot_result
+              - service: persistent_notification.create
                 data:
-                  message: "Screenshot: {{ result.json.status | default('OK') }}"
+                  title: "Screenshot Capturado"
+                  message: "Se ha capturado una pantalla del dispositivo {{ device_ip }}. Verifica el directorio de descargas o la carpeta de screenshots de la API."
+                  notification_id: "adb_screenshot_{{ device_ip }}"
           
           - conditions:
               - condition: template
@@ -532,31 +540,163 @@ script:
           - service: notify.notify
             data:
               message: "ERROR adb_system: Acción '{{ action }}' desconocida. Use: screenshot o command"
+  
+  # =================================================================================
+  # SCREENSHOT - Capturar screenshot del dispositivo
+  # =================================================================================
+  
+  adb_capture_screenshot:
+    description: "Captura una screenshot del dispositivo Android (se guarda en la API, no en HA)"
+    fields:
+      device_ip:
+        description: "IP del dispositivo Android"
+        example: "192.168.0.161"
+        required: true
+    sequence:
+      - action: rest_command.adb_get_screenshot
+        data:
+          device_ip: "{{ device_ip }}"
+        response_variable: screenshot_response
+      - service: persistent_notification.create
+        data:
+          title: "Screenshot - {{ device_ip }}"
+          message: |
+            Screenshot capturada exitosamente del dispositivo {{ device_ip }}
+            
+            La imagen se encuentra almacenada en el servidor de la API en:
+            /tmp/screenshots/screenshot_{{ device_ip }}_[timestamp].png
+            
+            Puedes acceder a ella a través del gestor de archivos del servidor Docker.
+          notification_id: "adb_screenshot_{{ device_ip }}"
 
 # ============================================================================
-# REST SENSOR - Para monitoreo en tiempo real (OPCIONAL)
+# REST SENSOR - Para monitoreo en tiempo real
 # ============================================================================
-# Si quieres monitorear el estado de la API, puedes usar un REST sensor
-# Descomenta y adapta según tu versión de Home Assistant
+# Sensores para monitorear dispositivos Android en tiempo real
+# Adapta las IPs de los dispositivos según tu configuración
 
-# Opción 1: Para Home Assistant 2023.12 y anteriores
-# rest:
-#   - resource: "http://192.168.0.251:9123/"
-#     method: GET
-#     scan_interval: 30
-#     sensor:
-#       - name: "ADB API Health"
-#         unique_id: adb_api_health
-#         value_template: "{{ value_json.status }}"
+rest:
+  # Sensor para estado general de dispositivos
+  - resource: http://192.168.0.251:9123/devices
+    scan_interval: 60
+    sensor:
+      - name: "ADB Devices Overview"
+        unique_id: adb_devices_overview
+        json_attributes_path: "$"
+        value_template: "{{ value_json.count }} dispositivos"
+        json_attributes:
+          - "devices"
+          - "count"
+        icon: mdi:android-box
 
-# Opción 2: Para Home Assistant 2024.1 y posteriores
-# rest:
-#   - scan_interval: 30
-#     resource: "http://192.168.0.251:9123/"
-#     sensor:
-#       - name: "ADB API Health"
-#         unique_id: adb_api_health
-#         value_template: "{{ value_json.status }}"
+  # ========== DISPOSITIVO 1: SALA ==========
+  # Sensor para dispositivo 1 - Información general
+  - resource: http://192.168.0.251:9123/device/info?device_ip=192.168.0.161
+    scan_interval: 300
+    sensor:
+      - name: "ADB Device Info - Sala"
+        unique_id: adb_device_info_sala
+        json_attributes_path: "$.info"
+        value_template: "{{ value_json.info.model }}"
+        json_attributes:
+          - "model"
+          - "manufacturer"
+          - "android_version"
+          - "api_level"
+          - "total_ram"
+          - "storage_info"
+          - "serial_number"
+          - "battery_info"
+        icon: mdi:information
+        
+      - name: "ADB Device Status - Sala"
+        unique_id: adb_device_status_sala
+        json_attributes_path: "$"
+        value_template: "Online"
+        json_attributes:
+          - "device"
+          - "timestamp"
+        icon: mdi:connection
+
+  # Sensor para dispositivo 1 - Aplicación actual
+  - resource: http://192.168.0.251:9123/device/current-app?device_ip=192.168.0.161
+    scan_interval: 30
+    sensor:
+      - name: "ADB Current App - Sala"
+        unique_id: adb_current_app_sala
+        json_attributes_path: "$.current_app"
+        value_template: "{{ value_json.current_app.package | default('No app') }}"
+        json_attributes:
+          - "package"
+          - "activity"
+          - "info"
+        icon: mdi:application
+
+  # Sensor para dispositivo 1 - Volumen actual
+  - resource: http://192.168.0.251:9123/device/volume/current?device_ip=192.168.0.161
+    scan_interval: 60
+    sensor:
+      - name: "ADB Volume - Sala"
+        unique_id: adb_volume_sala
+        json_attributes_path: "$.volume_info"
+        value_template: "Activo"
+        json_attributes:
+          - "raw_output"
+        icon: mdi:volume-high
+
+  # Sensor para dispositivo 1 - Apps instaladas
+  - resource: http://192.168.0.251:9123/device/installed-apps?device_ip=192.168.0.161&limit=50
+    scan_interval: 3600
+    sensor:
+      - name: "ADB Installed Apps - Sala"
+        unique_id: adb_apps_sala
+        json_attributes_path: "$"
+        value_template: "{{ value_json.total_apps }} apps"
+        json_attributes:
+          - "apps"
+          - "total_apps"
+        icon: mdi:apps
+
+  
+
+# ============================================================================
+# NOTAS SOBRE SENSORES REST
+# ============================================================================
+#
+# PERSONALIZACIÓN:
+# - Cambia 192.168.0.161 y 192.168.0.162 por las IPs de tus dispositivos
+# - Puedes agregar más bloques '- resource:' para dispositivos adicionales
+# - Ajusta los intervalos scan_interval según necesites:
+#   * 30 segundos: Para monitoreo en tiempo real (app actual)
+#   * 60 segundos: Para información general
+#   * 300 segundos (5 min): Para datos menos frecuentes
+#   * 3600 segundos (1 hora): Para información estática (apps instaladas)
+#
+# ACCESO A LOS DATOS EN TEMPLATES:
+# - Valor del sensor: {{ states('sensor.adb_device_info_sala') }}
+# - Acceder a atributos: {{ state_attr('sensor.adb_device_info_sala', 'model') }}
+# - Ejemplos:
+#   * {{ state_attr('sensor.adb_device_info_sala', 'android_version') }}
+#   * {{ state_attr('sensor.adb_device_info_sala', 'battery_info') }}
+#   * {{ state_attr('sensor.adb_current_app_sala', 'package') }}
+#   * {{ state_attr('sensor.adb_apps_sala', 'total_apps') }}
+#
+# USO EN AUTOMATIZACIONES:
+# - Ejecutar acciones cuando cambie la app actual:
+#   trigger:
+#     - platform: state
+#       entity_id: sensor.adb_current_app_sala
+#   action:
+#     - service: light.turn_on
+#       target:
+#         entity_id: light.sala
+#       data:
+#         brightness: 255
+#
+# - Notificar cuando la batería sea baja:
+#   trigger:
+#     - platform: template
+#       value_template: "{{ 'battery' in state_attr('sensor.adb_device_info_sala', 'battery_info') | lower }}"
 
 # ============================================================================
 # TEMPLATE SENSORS - Para información procesada
@@ -667,6 +807,13 @@ template:
 #     action: "screenshot"
 #     device_ip: "192.168.0.161"
 #
+# EJEMPLO 10b: Tomar screenshot (usando script dedicado - SIN almacenar en HA)
+#   Service: script.adb_capture_screenshot
+#   Data:
+#     device_ip: "192.168.0.161"
+#   Nota: El valor NO se almacena en Home Assistant
+#         La imagen se guarda en /tmp/screenshots/ dentro del contenedor Docker
+#
 # EJEMPLO 11: Listar dispositivos conectados
 #   Service: script.adb_device
 #   Data:
@@ -685,6 +832,19 @@ template:
 #    - Local: Si Home Assistant está en el mismo host que la API, usa http://localhost:8000
 #    - Remoto: Si está en otro host, usa http://IP_API:8000
 #    - Ejemplo: http://192.168.0.25100:8000
+#
+# 2. SCREENSHOTS:
+#    - El endpoint /screenshot descarga una imagen PNG
+#    - NO se almacena como estado en Home Assistant
+#    - La imagen se guarda automáticamente en el servidor de la API
+#    - Ubicación: /tmp/screenshots/screenshot_[device_ip]_[timestamp].png
+#    - Puedes acceder a las imágenes directamente desde el contenedor Docker
+#    - Usar el script adb_capture_screenshot para llamarlo sin almacenar valor
+#
+# 3. SENSORES REST:
+#    - Los sensores monitorean dispositivos continuamente (scan_interval)
+#    - Acceso a atributos: {{ state_attr('sensor.nombre', 'atributo') }}
+#    - Los valores se actualizan automáticamente según el intervalo configurado
 #
 # 2. SEGURIDAD:
 #    - NO guardes IPs o URLs sensibles en configuration.yaml visible
