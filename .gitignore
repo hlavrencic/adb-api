@@ -60,3 +60,4 @@ Thumbs.db
 
 # local config files
 config/adb-keys/*
+config/screenshots/*
